@@ -6,16 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calculator, Download, FileText } from "lucide-react"
-import { MOCK_EMPLOYEES, MOCK_NOVELTIES, MOCK_PAYROLLS, type Payroll } from "@/lib/mock-data"
+import { 
+  getEmployees, 
+  getNovelties, 
+  getPayrollsByPeriod, 
+  createBulkPayrolls,
+  deletePayrollsByPeriod,
+  type Payroll,
+  type Employee,
+  type PayrollNovelty
+} from "@/lib/mock-data"
 import { calculatePayroll } from "@/lib/payroll-calculator"
 import { generatePayrollPDF } from "@/lib/pdf-generator"
+import DashboardPage from "../dashboard/page"
+
 
 export default function PayrollPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [calculatedPayrolls, setCalculatedPayrolls] = useState<Payroll[]>([])
   const [isCalculating, setIsCalculating] = useState(false)
-
+  const [isLoading, setIsLoading] = useState(false)
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [novelties, setNovelties] = useState<PayrollNovelty[]>([])
+  
   const months = [
     { value: 1, label: "Enero" },
     { value: 2, label: "Febrero" },
@@ -32,57 +46,153 @@ export default function PayrollPage() {
   ]
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
-
   useEffect(() => {
-    // Cargar nóminas ya procesadas para el período seleccionado
-    const existingPayrolls = MOCK_PAYROLLS.filter(
-      (p) => p.periodMonth === selectedMonth && p.periodYear === selectedYear,
-    )
-    setCalculatedPayrolls(existingPayrolls)
+    loadData()
+  }, [])
+  //CARGAR NOMINAS CUANDO CAMBIA EL PERIODO
+  useEffect(() => {
+    loadPayrolls()
   }, [selectedMonth, selectedYear])
 
-  const handleCalculatePayroll = () => {
-    setIsCalculating(true)
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      const [empsData, novsData] = await Promise.all([
+        getEmployees(),
+        getNovelties()
+      ])
+      setEmployees(empsData)
+      setNovelties(novsData)
+    } catch (error) {
+      console.error("Error al cargar datos:", error)
+      alert("Error al cargar los datos iniciales")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+   const loadPayrolls = async () => {
+    try {
+      setIsLoading(true)
+      const payrolls = await getPayrollsByPeriod(selectedMonth, selectedYear)
+      setCalculatedPayrolls(payrolls)
+    } catch (error) {
+      console.error("Error al cargar nóminas:", error)
+      setCalculatedPayrolls([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+   const handleCalculatePayroll = async () => {
+    try {
+      setIsCalculating(true)
+      
+      // Confirmar si ya existen nóminas para este período
+      if (calculatedPayrolls.length > 0) {
+        const confirm = window.confirm(
+          `Ya existen ${calculatedPayrolls.length} nóminas para ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}. ¿Deseas recalcular y reemplazarlas?`
+        )
+        if (!confirm) {
+          setIsCalculating(false)
+          return
+        }
+        
+        // Eliminar nóminas existentes
+        await deletePayrollsByPeriod(selectedMonth, selectedYear)
+        setCalculatedPayrolls([])
+      }
 
-    // Simular cálculo
-    setTimeout(() => {
-      const activeEmployees = MOCK_EMPLOYEES.filter((e) => e.status === "active")
+      // Calcular nóminas para empleados activos
+      const activeEmployees = employees.filter((e) => e.status === "active")
+      
+      if (activeEmployees.length === 0) {
+        alert("No hay empleados activos para procesar")
+        setIsCalculating(false)
+        return
+      }
+
       const newPayrolls = activeEmployees.map((employee) =>
-        calculatePayroll(employee, MOCK_NOVELTIES, selectedMonth, selectedYear),
+        calculatePayroll(employee, novelties, selectedMonth, selectedYear)
       )
 
-      setCalculatedPayrolls(newPayrolls)
+      // Guardar en Supabase
+      await createBulkPayrolls(newPayrolls)
+
+      // 🔁 Luego recarga desde la base real
+      const updatedPayrolls = await getPayrollsByPeriod(selectedMonth, selectedYear)
+      setCalculatedPayrolls(updatedPayrolls)
+    } catch (error: any) {
+      console.error("Error al calcular nómina:", error)
+      alert(`Error al calcular nómina: ${error?.message || "Error desconocido"}`)
+    } finally {
       setIsCalculating(false)
-    }, 1000)
+    }
+  }
+  const handleDeletePayrolls = async () => {
+    if (calculatedPayrolls.length === 0) {
+      alert("No hay nóminas para eliminar en este período")
+      return
+    }
+
+    const confirm = window.confirm(
+      `¿Estás seguro de eliminar ${calculatedPayrolls.length} nóminas de ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}?`
+    )
+    
+    if (!confirm) return
+
+    try {
+      setIsLoading(true)
+      await deletePayrollsByPeriod(selectedMonth, selectedYear)
+      setCalculatedPayrolls([])
+      alert("✅ Nóminas eliminadas exitosamente")
+    } catch (error: any) {
+      console.error("Error al eliminar nóminas:", error)
+      alert(`Error al eliminar nóminas: ${error?.message || "Error desconocido"}`)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleDownloadPDF = (payroll: Payroll) => {
-    const employee = MOCK_EMPLOYEES.find((e) => e.id === payroll.employeeId)
+    const employee = employees.find((e) => e.id === payroll.employee_id)
     if (employee) {
       generatePayrollPDF(payroll, employee)
     }
   }
 
   const handleDownloadAllPDFs = () => {
-    calculatedPayrolls.forEach((payroll) => {
-      const employee = MOCK_EMPLOYEES.find((e) => e.id === payroll.employeeId)
+    calculatedPayrolls.forEach((payroll, index) => {
+      const employee = employees.find((e) => e.id === payroll.employee_id)
       if (employee) {
-        setTimeout(() => generatePayrollPDF(payroll, employee), 100)
+        setTimeout(() => generatePayrollPDF(payroll, employee), index * 500)
       }
     })
   }
 
-  const totalPayroll = calculatedPayrolls.reduce((sum, p) => sum + p.netSalary, 0)
-  const totalEarnings = calculatedPayrolls.reduce((sum, p) => sum + p.totalEarnings, 0)
-  const totalDeductions = calculatedPayrolls.reduce((sum, p) => sum + p.totalDeductions, 0)
 
+  const totalPayroll = calculatedPayrolls.reduce((sum, p) => sum + p.net_salary, 0)
+  const totalEarnings = calculatedPayrolls.reduce((sum, p) => sum + p.total_earnings, 0)
+  const totalDeductions = calculatedPayrolls.reduce((sum, p) => sum + p.total_deductions, 0)
+   if (isLoading && employees.length === 0) {
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando datos...</p>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Cálculo de Nómina</h1>
         <p className="text-muted-foreground mt-1">Procesa la nómina mensual y genera comprobantes</p>
       </div>
-
+    <a href="/dashboard">
+      <Button className="mb-4">
+        Volver al Dashboard
+      </Button>
+    </a> 
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Seleccionar Período</CardTitle>
@@ -181,17 +291,17 @@ export default function PayrollPage() {
                 </TableHeader>
                 <TableBody>
                   {calculatedPayrolls.map((payroll) => {
-                    const employee = MOCK_EMPLOYEES.find((e) => e.id === payroll.employeeId)
+                    const employee = employees.find((e) => e.id === payroll.employee_id)
                     return (
                       <TableRow key={payroll.id}>
                         <TableCell className="font-medium">
-                          {employee?.firstName} {employee?.lastName}
+                          {employee?.first_name} {employee?.last_name}
                         </TableCell>
-                        <TableCell>${payroll.baseSalary.toLocaleString("es-CO")}</TableCell>
+                        <TableCell>${payroll.base_salary.toLocaleString("es-CO")}</TableCell>
                         <TableCell className="text-green-600">${payroll.bonuses.toLocaleString("es-CO")}</TableCell>
                         <TableCell className="text-green-600">${payroll.overtime.toLocaleString("es-CO")}</TableCell>
                         <TableCell className="text-red-600">${payroll.deductions.toLocaleString("es-CO")}</TableCell>
-                        <TableCell className="font-bold">${payroll.netSalary.toLocaleString("es-CO")}</TableCell>
+                        <TableCell className="font-bold">${payroll.net_salary.toLocaleString("es-CO")}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(payroll)}>
                             <FileText className="h-4 w-4" />

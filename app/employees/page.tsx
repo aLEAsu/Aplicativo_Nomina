@@ -116,9 +116,14 @@ export default function EmployeesPage() {
         <div>
           <h1 className="text-3xl font-bold">Gestión de Empleados</h1>
           <p className="text-muted-foreground mt-1">Administra la información de los empleados</p>
+          <a href="/dashboard">
+            <Button className=" mt-4">
+              Volver al Dashboard
+            </Button>
+          </a>
         </div>
         <Button onClick={handleAddEmployee}>
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="mr-3 h-4 w-4" />
           Nuevo Empleado
         </Button>
       </div>

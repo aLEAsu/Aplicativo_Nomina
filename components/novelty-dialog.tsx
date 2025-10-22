@@ -52,27 +52,49 @@ export function NoveltyDialog({ open, onOpenChange, novelty, onSave }: NoveltyDi
     }
   }, [novelty, open])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault()
 
-    try {
+  try {
+    console.log("📤 Guardando novedad...", formData)
+    
+    // Validar que employee_id esté presente
+    if (!formData.employee_id) {
+      alert("Por favor selecciona un empleado")
+      return
+    }
+    
+    // Validar que amount sea mayor a 0
+    if (!formData.amount || formData.amount <= 0) {
+      alert("Por favor ingresa un monto válido")
+      return
+    }
+
     let savedNovelty: PayrollNovelty | null = null
 
-      if (novelty?.id) {
+    if (novelty?.id) {
       // ✏️ Editar novedad existente
+      console.log("Editando novedad existente:", novelty.id)
       savedNovelty = await updateNovelty(novelty.id, formData as PayrollNovelty)
-      } else {
+    } else {
       // 🆕 Crear nueva novedad
+      console.log("Creando nueva novedad")
       savedNovelty = await createNovelty(formData as PayrollNovelty)
-      }
+    }
 
     if (savedNovelty) {
+      console.log("✅ Novedad guardada exitosamente:", savedNovelty)
       onSave(savedNovelty)
       onOpenChange(false)
     }
-    } catch (error) {
-    console.error("Error al guardar la novedad:", error)}
+  } catch (error: any) {
+    console.error("❌ Error al guardar la novedad:", error)
+    
+    // Mostrar mensaje de error más detallado
+    const errorMessage = error?.message || error?.toString() || "Error desconocido al guardar"
+    alert(`Error al guardar la novedad: ${errorMessage}`)
   }
+}
 
   const handleChange = (field: keyof PayrollNovelty, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }))

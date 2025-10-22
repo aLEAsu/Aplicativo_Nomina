@@ -101,11 +101,11 @@ export function generatePayrollPDF(payroll: Payroll, employee: Employee) {
         </div>
         <div class="info-row">
           <span class="label">Período:</span>
-          <span class="value">${getMonthName(payroll.periodMonth)} ${payroll.periodYear}</span>
+          <span class="value">${getMonthName(payroll.period_month)} ${payroll.period_year}</span>
         </div>
         <div class="info-row">
           <span class="label">Fecha de Proceso:</span>
-          <span class="value">${new Date(payroll.processedAt).toLocaleDateString("es-CO")}</span>
+          <span class="value">${new Date(payroll.processed_at).toLocaleDateString("es-CO")}</span>
         </div>
       </div>
 
@@ -153,7 +153,7 @@ export function generatePayrollPDF(payroll: Payroll, employee: Employee) {
           }
           <tr class="total-row">
             <td>Total Devengado</td>
-            <td style="text-align: right;">$${payroll.totalEarnings.toLocaleString("es-CO")}</td>
+            <td style="text-align: right;">$${payroll.total_earnings.toLocaleString("es-CO")}</td>
           </tr>
           <tr>
             <td colspan="2" style="height: 10px; border: none;"></td>
@@ -178,14 +178,14 @@ export function generatePayrollPDF(payroll: Payroll, employee: Employee) {
           }
           <tr class="total-row">
             <td>Total Deducciones</td>
-            <td style="text-align: right; color: #d32f2f;">-$${payroll.totalDeductions.toLocaleString("es-CO")}</td>
+            <td style="text-align: right; color: #d32f2f;">-$${payroll.total_deductions.toLocaleString("es-CO")}</td>
           </tr>
           <tr>
             <td colspan="2" style="height: 10px; border: none;"></td>
           </tr>
           <tr class="net-salary">
             <td>NETO A PAGAR</td>
-            <td style="text-align: right;">$${payroll.netSalary.toLocaleString("es-CO")}</td>
+            <td style="text-align: right;">$${payroll.net_salary.toLocaleString("es-CO")}</td>
           </tr>
         </tbody>
       </table>
@@ -203,7 +203,7 @@ export function generatePayrollPDF(payroll: Payroll, employee: Employee) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
   link.href = url
-  link.download = `Nomina_${employee.identification}_${payroll.periodMonth}_${payroll.periodYear}.html`
+  link.download = `Nomina_${employee.identification}_${payroll.period_month}_${payroll.period_year}.html`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)

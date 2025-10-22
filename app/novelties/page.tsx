@@ -135,7 +135,13 @@ export default function NoveltiesPage() {
         <div>
           <h1 className="text-3xl font-bold">Novedades de Nómina</h1>
           <p className="text-muted-foreground mt-1">Registra bonos, deducciones y otros conceptos</p>
+          <a href="/dashboard">
+            <Button className=" mt-4">
+              Volver al Dashboard
+            </Button>
+          </a>
         </div>
+        
         <Button onClick={handleAddNovelty}>
           <Plus className="mr-2 h-4 w-4" />
           Nueva Novedad

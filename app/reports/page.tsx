@@ -1,12 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileSpreadsheet, FileText } from "lucide-react"
-import { MOCK_EMPLOYEES, MOCK_NOVELTIES, MOCK_PAYROLLS } from "@/lib/mock-data"
+import {
+  getEmployees,
+  getNovelties,
+  getPayrollsByPeriod,
+  type Employee,
+  type PayrollNovelty,
+  type Payroll,
+} from "@/lib/mock-data"
 import { exportToCSV, exportReportToPDF } from "@/lib/export-utils"
 import {
   BarChart,
@@ -27,6 +34,10 @@ const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [novelties, setNovelties] = useState<PayrollNovelty[]>([])
+  const [payrolls, setPayrolls] = useState<Payroll[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   const months = [
     { value: 1, label: "Enero" },
@@ -45,67 +56,99 @@ export default function ReportsPage() {
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
 
-  // Datos para gráficos
-  const departmentData = MOCK_EMPLOYEES.filter((e) => e.status === "active").reduce(
-    (acc, emp) => {
-      const dept = emp.department || "Sin Departamento"
-      const existing = acc.find((d) => d.name === dept)
-      if (existing) {
-        existing.value += 1
-        existing.salary += emp.baseSalary
-      } else {
-        acc.push({ name: dept, value: 1, salary: emp.baseSalary })
-      }
-      return acc
-    },
-    [] as { name: string; value: number; salary: number }[],
-  )
+  useEffect(() => {
+    loadInitialData()
+  }, [])
+
+  useEffect(() => {
+    loadPayrolls()
+  }, [selectedMonth, selectedYear])
+
+  const loadInitialData = async () => {
+    try {
+      setIsLoading(true)
+      const [empsData, novsData] = await Promise.all([getEmployees(), getNovelties()])
+      setEmployees(empsData)
+      setNovelties(novsData)
+    } catch (error) {
+      console.error("Error al cargar datos:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadPayrolls = async () => {
+    try {
+      const payrollsData = await getPayrollsByPeriod(selectedMonth, selectedYear)
+      setPayrolls(payrollsData)
+    } catch (error) {
+      console.error("Error al cargar nóminas:", error)
+      setPayrolls([])
+    }
+  }
+
+  const departmentData = employees
+    .filter((e) => e.status === "active")
+    .reduce(
+      (acc, emp) => {
+        const dept = emp.department || "Sin Departamento"
+        const existing = acc.find((d) => d.name === dept)
+        if (existing) {
+          existing.value += 1
+          existing.salary += emp.base_salary
+        } else {
+          acc.push({ name: dept, value: 1, salary: emp.base_salary })
+        }
+        return acc
+      },
+      [] as { name: string; value: number; salary: number }[],
+    )
 
   const salaryRangeData = [
     {
       range: "< 3M",
-      count: MOCK_EMPLOYEES.filter((e) => e.status === "active" && e.baseSalary < 3000000).length,
+      count: employees.filter((e) => e.status === "active" && e.base_salary < 3000000).length,
     },
     {
       range: "3M - 5M",
-      count: MOCK_EMPLOYEES.filter((e) => e.status === "active" && e.baseSalary >= 3000000 && e.baseSalary < 5000000)
+      count: employees.filter((e) => e.status === "active" && e.base_salary >= 3000000 && e.base_salary < 5000000)
         .length,
     },
     {
       range: "5M - 7M",
-      count: MOCK_EMPLOYEES.filter((e) => e.status === "active" && e.baseSalary >= 5000000 && e.baseSalary < 7000000)
+      count: employees.filter((e) => e.status === "active" && e.base_salary >= 5000000 && e.base_salary < 7000000)
         .length,
     },
     {
       range: "> 7M",
-      count: MOCK_EMPLOYEES.filter((e) => e.status === "active" && e.baseSalary >= 7000000).length,
+      count: employees.filter((e) => e.status === "active" && e.base_salary >= 7000000).length,
     },
   ]
 
   const handleExportEmployeesCSV = () => {
-    const data = MOCK_EMPLOYEES.map((emp) => ({
+    const data = employees.map((emp) => ({
       Identificación: emp.identification,
-      Nombre: emp.firstName,
-      Apellido: emp.lastName,
+      Nombre: emp.first_name,
+      Apellido: emp.last_name,
       Email: emp.email,
       Teléfono: emp.phone,
       Cargo: emp.position,
       Departamento: emp.department,
-      "Salario Base": emp.baseSalary,
-      "Fecha Contratación": emp.hireDate,
+      "Salario Base": emp.base_salary,
+      "Fecha Contratación": emp.hire_date,
       Estado: emp.status,
     }))
     exportToCSV(data, "empleados")
   }
 
   const handleExportNoveltiesCSV = () => {
-    const data = MOCK_NOVELTIES.map((nov) => {
-      const employee = MOCK_EMPLOYEES.find((e) => e.id === nov.employeeId)
+    const data = novelties.map((nov) => {
+      const employee = employees.find((e) => e.id === nov.employee_id)
       return {
         Fecha: nov.date,
-        Empleado: `${employee?.firstName} ${employee?.lastName}`,
+        Empleado: `${employee?.first_name} ${employee?.last_name}`,
         Identificación: employee?.identification,
-        Tipo: nov.noveltyType,
+        Tipo: nov.novelty_type,
         Descripción: nov.description,
         Monto: nov.amount,
       }
@@ -114,33 +157,42 @@ export default function ReportsPage() {
   }
 
   const handleExportPayrollCSV = () => {
-    const data = MOCK_PAYROLLS.filter((p) => p.periodMonth === selectedMonth && p.periodYear === selectedYear).map(
-      (payroll) => {
-        const employee = MOCK_EMPLOYEES.find((e) => e.id === payroll.employeeId)
-        return {
-          Empleado: `${employee?.firstName} ${employee?.lastName}`,
-          Identificación: employee?.identification,
-          "Salario Base": payroll.baseSalary,
-          Bonos: payroll.bonuses,
-          "Horas Extras": payroll.overtime,
-          Comisiones: payroll.commissions,
-          Deducciones: payroll.deductions,
-          "Total Devengado": payroll.totalEarnings,
-          "Total Deducciones": payroll.totalDeductions,
-          "Neto a Pagar": payroll.netSalary,
-        }
-      },
-    )
+    const data = payrolls.map((payroll) => {
+      const employee = employees.find((e) => e.id === payroll.employee_id)
+      return {
+        Empleado: `${employee?.first_name} ${employee?.last_name}`,
+        Identificación: employee?.identification,
+        "Salario Base": payroll.base_salary,
+        Bonos: payroll.bonuses,
+        "Horas Extras": payroll.overtime,
+        Comisiones: payroll.commissions,
+        Deducciones: payroll.deductions,
+        "Total Devengado": payroll.total_earnings,
+        "Total Deducciones": payroll.total_deductions,
+        "Neto a Pagar": payroll.net_salary,
+      }
+    })
     exportToCSV(data, `nomina_${selectedMonth}_${selectedYear}`)
   }
 
   const handleExportReportPDF = () => {
-    exportReportToPDF(selectedMonth, selectedYear, MOCK_EMPLOYEES, MOCK_PAYROLLS)
+    exportReportToPDF(selectedMonth, selectedYear, employees, payrolls)
   }
 
-  const totalEmployees = MOCK_EMPLOYEES.filter((e) => e.status === "active").length
-  const totalPayroll = MOCK_EMPLOYEES.filter((e) => e.status === "active").reduce((sum, e) => sum + e.baseSalary, 0)
-  const avgSalary = totalPayroll / totalEmployees
+  const totalEmployees = employees.filter((e) => e.status === "active").length
+  const totalPayroll = employees.filter((e) => e.status === "active").reduce((sum, e) => sum + e.base_salary, 0)
+  const avgSalary = totalEmployees > 0 ? totalPayroll / totalEmployees : 0
+
+  if (isLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando datos...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8">
@@ -148,6 +200,9 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-3xl font-bold">Reportes y Análisis</h1>
           <p className="text-muted-foreground mt-1">Visualiza estadísticas y exporta información</p>
+          <a href="/dashboard">
+            <Button className="mt-4">Volver al Dashboard</Button>
+          </a>
         </div>
         <div className="flex gap-2">
           <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(Number.parseInt(v))}>
