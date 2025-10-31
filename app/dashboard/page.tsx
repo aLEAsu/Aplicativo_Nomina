@@ -112,7 +112,7 @@ export default function DashboardPage() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-red-700">PANEL ADMINISTRATIVO NOMINA</h1>
         <p className="text-muted-foreground mt-1">Bienvenido, {user?.fullName || "Usuario"}</p>
       </div>
 
@@ -134,7 +134,7 @@ export default function DashboardPage() {
         <StatCard
           title="Última Nómina"
           value={`$${stats.lastPayroll?.net_salary?.toLocaleString("es-CO") || "0"}`}
-          description={`Procesada el ${stats.lastPayroll ? new Date(stats.lastPayroll.processedAt).toLocaleDateString("es-CO") : "N/A"}`}
+          description={`Procesada el ${stats.lastPayroll ? new Date(stats.lastPayroll.processed_at).toLocaleDateString("es-CO") : "N/A"}`}
           icon={DollarSign}
         />
 

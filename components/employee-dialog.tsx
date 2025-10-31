@@ -105,9 +105,9 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSave }: Employe
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">Nombre *</Label>
+                <Label htmlFor="first_name">Nombre *</Label>
                 <Input
-                  id="firstName"
+                  id="first_name"
                   value={formData.first_name}
                   onChange={(e) => handleChange("first_name", e.target.value)}
                   required
@@ -116,7 +116,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSave }: Employe
               <div className="space-y-2">
                 <Label htmlFor="lastName">Apellido *</Label>
                 <Input
-                  id="lastName"
+                  id="last_name"
                   value={formData.last_name}
                   onChange={(e) => handleChange("last_name", e.target.value)}
                   required

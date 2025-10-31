@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -31,6 +31,23 @@ import {
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
+const MONTHS = [
+  { value: 1, label: "Enero" },
+  { value: 2, label: "Febrero" },
+  { value: 3, label: "Marzo" },
+  { value: 4, label: "Abril" },
+  { value: 5, label: "Mayo" },
+  { value: 6, label: "Junio" },
+  { value: 7, label: "Julio" },
+  { value: 8, label: "Agosto" },
+  { value: 9, label: "Septiembre" },
+  { value: 10, label: "Octubre" },
+  { value: 11, label: "Noviembre" },
+  { value: 12, label: "Diciembre" },
+]
+
+const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
+
 export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -39,374 +56,226 @@ export default function ReportsPage() {
   const [payrolls, setPayrolls] = useState<Payroll[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const months = [
-    { value: 1, label: "Enero" },
-    { value: 2, label: "Febrero" },
-    { value: 3, label: "Marzo" },
-    { value: 4, label: "Abril" },
-    { value: 5, label: "Mayo" },
-    { value: 6, label: "Junio" },
-    { value: 7, label: "Julio" },
-    { value: 8, label: "Agosto" },
-    { value: 9, label: "Septiembre" },
-    { value: 10, label: "Octubre" },
-    { value: 11, label: "Noviembre" },
-    { value: 12, label: "Diciembre" },
-  ]
-
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
-
   useEffect(() => {
-    loadInitialData()
+    ;(async () => {
+      try {
+        setIsLoading(true)
+        const [empData, novData] = await Promise.all([getEmployees(), getNovelties()])
+        setEmployees(empData)
+        setNovelties(novData)
+      } catch (err) {
+        console.error("Error al cargar datos:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    })()
   }, [])
 
   useEffect(() => {
-    loadPayrolls()
+    ;(async () => {
+      try {
+        const data = await getPayrollsByPeriod(selectedMonth, selectedYear)
+        setPayrolls(data)
+      } catch (err) {
+        console.error("Error al cargar nóminas:", err)
+        setPayrolls([])
+      }
+    })()
   }, [selectedMonth, selectedYear])
 
-  const loadInitialData = async () => {
-    try {
-      setIsLoading(true)
-      const [empsData, novsData] = await Promise.all([getEmployees(), getNovelties()])
-      setEmployees(empsData)
-      setNovelties(novsData)
-    } catch (error) {
-      console.error("Error al cargar datos:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // 👇 Optimizaciones con useMemo para evitar cálculos en cada render
+  const activeEmployees = useMemo(() => employees.filter((e) => e.status === "active"), [employees])
 
-  const loadPayrolls = async () => {
-    try {
-      const payrollsData = await getPayrollsByPeriod(selectedMonth, selectedYear)
-      setPayrolls(payrollsData)
-    } catch (error) {
-      console.error("Error al cargar nóminas:", error)
-      setPayrolls([])
-    }
-  }
+  const departmentData = useMemo(() => {
+    return activeEmployees.reduce((acc, emp) => {
+      const dept = emp.department || "Sin Departamento"
+      const existing = acc.find((d) => d.name === dept)
+      existing ? (existing.value++, (existing.salary += emp.base_salary)) : acc.push({ name: dept, value: 1, salary: emp.base_salary })
+      return acc
+    }, [] as { name: string; value: number; salary: number }[])
+  }, [activeEmployees])
 
-  const departmentData = employees
-    .filter((e) => e.status === "active")
-    .reduce(
-      (acc, emp) => {
-        const dept = emp.department || "Sin Departamento"
-        const existing = acc.find((d) => d.name === dept)
-        if (existing) {
-          existing.value += 1
-          existing.salary += emp.base_salary
-        } else {
-          acc.push({ name: dept, value: 1, salary: emp.base_salary })
-        }
-        return acc
-      },
-      [] as { name: string; value: number; salary: number }[],
-    )
+  const salaryRangeData = useMemo(
+    () => [
+      { range: "< 3M", count: activeEmployees.filter((e) => e.base_salary < 3_000_000).length },
+      { range: "3M - 5M", count: activeEmployees.filter((e) => e.base_salary >= 3_000_000 && e.base_salary < 5_000_000).length },
+      { range: "5M - 7M", count: activeEmployees.filter((e) => e.base_salary >= 5_000_000 && e.base_salary < 7_000_000).length },
+      { range: "> 7M", count: activeEmployees.filter((e) => e.base_salary >= 7_000_000).length },
+    ],
+    [activeEmployees]
+  )
 
-  const salaryRangeData = [
-    {
-      range: "< 3M",
-      count: employees.filter((e) => e.status === "active" && e.base_salary < 3000000).length,
-    },
-    {
-      range: "3M - 5M",
-      count: employees.filter((e) => e.status === "active" && e.base_salary >= 3000000 && e.base_salary < 5000000)
-        .length,
-    },
-    {
-      range: "5M - 7M",
-      count: employees.filter((e) => e.status === "active" && e.base_salary >= 5000000 && e.base_salary < 7000000)
-        .length,
-    },
-    {
-      range: "> 7M",
-      count: employees.filter((e) => e.status === "active" && e.base_salary >= 7000000).length,
-    },
-  ]
+  const totalEmployees = activeEmployees.length
+  const totalPayroll = useMemo(() => activeEmployees.reduce((sum, e) => sum + e.base_salary, 0), [activeEmployees])
+  const avgSalary = totalEmployees ? totalPayroll / totalEmployees : 0
 
   const handleExportEmployeesCSV = () => {
-    const data = employees.map((emp) => ({
-      Identificación: emp.identification,
-      Nombre: emp.first_name,
-      Apellido: emp.last_name,
-      Email: emp.email,
-      Teléfono: emp.phone,
-      Cargo: emp.position,
-      Departamento: emp.department,
-      "Salario Base": emp.base_salary,
-      "Fecha Contratación": emp.hire_date,
-      Estado: emp.status,
-    }))
-    exportToCSV(data, "empleados")
+    exportToCSV(
+      employees.map((e) => ({
+        Identificación: e.identification,
+        Nombre: e.first_name,
+        Apellido: e.last_name,
+        Email: e.email,
+        Teléfono: e.phone,
+        Cargo: e.position,
+        Departamento: e.department,
+        "Salario Base": e.base_salary,
+        "Fecha Contratación": e.hire_date,
+        Estado: e.status,
+      })),
+      "empleados"
+    )
   }
 
   const handleExportNoveltiesCSV = () => {
-    const data = novelties.map((nov) => {
-      const employee = employees.find((e) => e.id === nov.employee_id)
-      return {
-        Fecha: nov.date,
-        Empleado: `${employee?.first_name} ${employee?.last_name}`,
-        Identificación: employee?.identification,
-        Tipo: nov.novelty_type,
-        Descripción: nov.description,
-        Monto: nov.amount,
-      }
-    })
-    exportToCSV(data, `novedades_${selectedMonth}_${selectedYear}`)
-  }
-
-  const handleExportPayrollCSV = () => {
-    const data = payrolls.map((payroll) => {
-      const employee = employees.find((e) => e.id === payroll.employee_id)
-      return {
-        Empleado: `${employee?.first_name} ${employee?.last_name}`,
-        Identificación: employee?.identification,
-        "Salario Base": payroll.base_salary,
-        Bonos: payroll.bonuses,
-        "Horas Extras": payroll.overtime,
-        Comisiones: payroll.commissions,
-        Deducciones: payroll.deductions,
-        "Total Devengado": payroll.total_earnings,
-        "Total Deducciones": payroll.total_deductions,
-        "Neto a Pagar": payroll.net_salary,
-      }
-    })
-    exportToCSV(data, `nomina_${selectedMonth}_${selectedYear}`)
-  }
-
-  const handleExportReportPDF = () => {
-    exportReportToPDF(selectedMonth, selectedYear, employees, payrolls)
-  }
-
-  const totalEmployees = employees.filter((e) => e.status === "active").length
-  const totalPayroll = employees.filter((e) => e.status === "active").reduce((sum, e) => sum + e.base_salary, 0)
-  const avgSalary = totalEmployees > 0 ? totalPayroll / totalEmployees : 0
-
-  if (isLoading) {
-    return (
-      <div className="p-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando datos...</p>
-        </div>
-      </div>
+    exportToCSV(
+      novelties.map((n) => {
+        const emp = employees.find((e) => e.id === n.employee_id)
+        return {
+          Fecha: n.date,
+          Empleado: `${emp?.first_name || ""} ${emp?.last_name || ""}`,
+          Identificación: emp?.identification,
+          Tipo: n.novelty_type,
+          Descripción: n.description,
+          Monto: n.amount,
+        }
+      }),
+      `novedades_${selectedMonth}_${selectedYear}`
     )
   }
 
+  const handleExportPayrollCSV = () => {
+    exportToCSV(
+      payrolls.map((p) => {
+        const emp = employees.find((e) => e.id === p.employee_id)
+        return {
+          Empleado: `${emp?.first_name || ""} ${emp?.last_name || ""}`,
+          Identificación: emp?.identification,
+          "Salario Base": p.base_salary,
+          Bonos: p.bonuses,
+          "Horas Extras": p.overtime,
+          Comisiones: p.commissions,
+          Deducciones: p.deductions,
+          "Total Devengado": p.total_earnings,
+          "Total Deducciones": p.total_deductions,
+          "Neto a Pagar": p.net_salary,
+        }
+      }),
+      `nomina_${selectedMonth}_${selectedYear}`
+    )
+  }
+
+  if (isLoading)
+    return (
+      <div className="p-10 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center animate-fade-in">
+          <div className="animate-spin h-12 w-12 border-b-2 border-primary rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground text-sm">Cargando datos del sistema...</p>
+        </div>
+      </div>
+    )
+
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="p-8 space-y-10">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Reportes y Análisis</h1>
-          <p className="text-muted-foreground mt-1">Visualiza estadísticas y exporta información</p>
+          <h1 className="text-3xl font-bold tracking-tight">Reportes y Análisis</h1>
+          <p className="text-muted-foreground">Visualiza estadísticas y exporta información</p>
           <a href="/dashboard">
-            <Button className="mt-4">Volver al Dashboard</Button>
+            <Button variant="outline" className="mt-4">Volver al Dashboard</Button>
           </a>
         </div>
+
         <div className="flex gap-2">
-          <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(Number.parseInt(v))}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
+          <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(Number(v))}>
+            <SelectTrigger className="w-[140px]"><SelectValue placeholder="Mes" /></SelectTrigger>
             <SelectContent>
-              {months.map((month) => (
-                <SelectItem key={month.value} value={month.value.toString()}>
-                  {month.label}
-                </SelectItem>
-              ))}
+              {MONTHS.map((m) => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(Number.parseInt(v))}>
-            <SelectTrigger className="w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
+
+          <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(Number(v))}>
+            <SelectTrigger className="w-[100px]"><SelectValue placeholder="Año" /></SelectTrigger>
             <SelectContent>
-              {years.map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ))}
+              {YEARS.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3 mb-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Empleados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalEmployees}</div>
-            <p className="text-xs text-muted-foreground mt-1">Empleados activos</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Nómina Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${totalPayroll.toLocaleString("es-CO")}</div>
-            <p className="text-xs text-muted-foreground mt-1">Suma de salarios base</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Salario Promedio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${avgSalary.toLocaleString("es-CO")}</div>
-            <p className="text-xs text-muted-foreground mt-1">Promedio por empleado</p>
-          </CardContent>
-        </Card>
+      {/* STATS */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {[{
+          title: "Total Empleados",
+          value: totalEmployees,
+          desc: "Empleados activos",
+        },
+        {
+          title: "Nómina Total",
+          value: `$${totalPayroll.toLocaleString("es-CO")}`,
+          desc: "Suma de salarios base",
+        },
+        {
+          title: "Salario Promedio",
+          value: `$${avgSalary.toLocaleString("es-CO")}`,
+          desc: "Promedio por empleado",
+        }].map((item, i) => (
+          <Card key={i} className="hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{item.title}</CardTitle></CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{item.value}</div>
+              <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
+      {/* TABS */}
       <Tabs defaultValue="charts" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="charts">Gráficos</TabsTrigger>
-          <TabsTrigger value="exports">Exportaciones</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 md:w-auto">
+          <TabsTrigger value="charts">📊 Gráficos</TabsTrigger>
+          <TabsTrigger value="exports">📦 Exportaciones</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="charts" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Empleados por Departamento</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={departmentData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, value }) => `${name}: ${value}`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {departmentData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+        {/* === GRÁFICOS === */}
+        <TabsContent value="charts" className="grid gap-6 lg:grid-cols-2">
+          <Card><CardHeader><CardTitle>Empleados por Departamento</CardTitle></CardHeader>
+            <CardContent><ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie data={departmentData} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={80} dataKey="value">
+                  {departmentData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie><Tooltip />
+              </PieChart>
+            </ResponsiveContainer></CardContent></Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Distribución Salarial</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={salaryRangeData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="range" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="count" fill="#8884d8" name="Empleados" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+          <Card><CardHeader><CardTitle>Distribución Salarial</CardTitle></CardHeader>
+            <CardContent><ResponsiveContainer width="100%" height={300}>
+              <BarChart data={salaryRangeData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="range" /><YAxis /><Tooltip /><Legend /><Bar dataKey="count" fill="#8884d8" name="Empleados" /></BarChart>
+            </ResponsiveContainer></CardContent></Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Nómina por Departamento</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={departmentData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => `$${Number(value).toLocaleString("es-CO")}`} />
-                    <Legend />
-                    <Bar dataKey="salary" fill="#00C49F" name="Salario Total" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="lg:col-span-2"><CardHeader><CardTitle>Nómina por Departamento</CardTitle></CardHeader>
+            <CardContent><ResponsiveContainer width="100%" height={300}>
+              <BarChart data={departmentData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip formatter={(v) => `$${Number(v).toLocaleString("es-CO")}`} /><Legend /><Bar dataKey="salary" fill="#00C49F" name="Salario Total" /></BarChart>
+            </ResponsiveContainer></CardContent></Card>
         </TabsContent>
 
-        <TabsContent value="exports" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Reporte de Empleados</CardTitle>
-              </CardHeader>
+        {/* === EXPORTACIONES === */}
+        <TabsContent value="exports" className="grid gap-6 md:grid-cols-2">
+          {[
+            { title: "Reporte de Empleados", desc: "Exporta la lista completa de empleados con toda su información.", icon: <FileSpreadsheet className="mr-2 h-4 w-4" />, action: handleExportEmployeesCSV },
+            { title: "Reporte de Novedades", desc: `Exporta las novedades del período seleccionado (${MONTHS.find(m => m.value === selectedMonth)?.label} ${selectedYear})`, icon: <FileSpreadsheet className="mr-2 h-4 w-4" />, action: handleExportNoveltiesCSV },
+            { title: "Reporte de Nómina", desc: `Exporta el detalle de nómina del período seleccionado (${MONTHS.find(m => m.value === selectedMonth)?.label} ${selectedYear})`, icon: <FileSpreadsheet className="mr-2 h-4 w-4" />, action: handleExportPayrollCSV },
+            { title: "Reporte Completo PDF", desc: "Genera un reporte consolidado con estadísticas y resumen del período.", icon: <FileText className="mr-2 h-4 w-4" />, action: () => exportReportToPDF(selectedMonth, selectedYear, employees, payrolls) },
+          ].map((r, i) => (
+            <Card key={i} className="hover:shadow-md transition-shadow">
+              <CardHeader><CardTitle>{r.title}</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Exporta la lista completa de empleados con toda su información
-                </p>
-                <div className="flex gap-2">
-                  <Button onClick={handleExportEmployeesCSV} className="flex-1">
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Exportar CSV
-                  </Button>
-                </div>
+                <p className="text-sm text-muted-foreground">{r.desc}</p>
+                <Button onClick={r.action} className="w-full">{r.icon}Exportar</Button>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Reporte de Novedades</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Exporta las novedades del período seleccionado ({months.find((m) => m.value === selectedMonth)?.label}{" "}
-                  {selectedYear})
-                </p>
-                <div className="flex gap-2">
-                  <Button onClick={handleExportNoveltiesCSV} className="flex-1">
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Exportar CSV
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Reporte de Nómina</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Exporta el detalle de nómina del período seleccionado (
-                  {months.find((m) => m.value === selectedMonth)?.label} {selectedYear})
-                </p>
-                <div className="flex gap-2">
-                  <Button onClick={handleExportPayrollCSV} className="flex-1">
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Exportar CSV
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Reporte Completo PDF</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Genera un reporte completo en PDF con estadísticas y resumen del período
-                </p>
-                <div className="flex gap-2">
-                  <Button onClick={handleExportReportPDF} className="flex-1">
-                    <FileText className="mr-2 h-4 w-4" />
-                    Exportar PDF
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          ))}
         </TabsContent>
       </Tabs>
     </div>

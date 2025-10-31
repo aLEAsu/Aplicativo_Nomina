@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calculator, Download, FileText } from "lucide-react"
-import { 
-  getEmployees, 
-  getNovelties, 
-  getPayrollsByPeriod, 
+import {
+  getEmployees,
+  getNovelties,
+  getPayrollsByPeriod,
   createBulkPayrolls,
   deletePayrollsByPeriod,
   type Payroll,
@@ -18,19 +18,17 @@ import {
 } from "@/lib/mock-data"
 import { calculatePayroll } from "@/lib/payroll-calculator"
 import { generatePayrollPDF } from "@/lib/pdf-generator"
-import DashboardPage from "../dashboard/page"
-
 
 export default function PayrollPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [calculatedPayrolls, setCalculatedPayrolls] = useState<Payroll[]>([])
-  const [isCalculating, setIsCalculating] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [novelties, setNovelties] = useState<PayrollNovelty[]>([])
-  
-  const months = [
+  const [isCalculating, setIsCalculating] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const months = useMemo(() => [
     { value: 1, label: "Enero" },
     { value: 2, label: "Febrero" },
     { value: 3, label: "Marzo" },
@@ -43,36 +41,33 @@ export default function PayrollPage() {
     { value: 10, label: "Octubre" },
     { value: 11, label: "Noviembre" },
     { value: 12, label: "Diciembre" },
-  ]
+  ], [])
 
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
-  useEffect(() => {
-    loadData()
-  }, [])
-  //CARGAR NOMINAS CUANDO CAMBIA EL PERIODO
-  useEffect(() => {
-    loadPayrolls()
-  }, [selectedMonth, selectedYear])
+  const years = useMemo(
+    () => Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i),
+    []
+  )
 
-  const loadData = async () => {
-    try {
+  useEffect(() => {
+    const loadInitialData = async () => {
       setIsLoading(true)
-      const [empsData, novsData] = await Promise.all([
-        getEmployees(),
-        getNovelties()
-      ])
-      setEmployees(empsData)
-      setNovelties(novsData)
-    } catch (error) {
-      console.error("Error al cargar datos:", error)
-      alert("Error al cargar los datos iniciales")
-    } finally {
-      setIsLoading(false)
+      try {
+        const [empsData, novsData] = await Promise.all([getEmployees(), getNovelties()])
+        setEmployees(empsData)
+        setNovelties(novsData)
+      } catch (error) {
+        console.error("Error al cargar datos iniciales:", error)
+        alert("Error al cargar los datos iniciales")
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }
-   const loadPayrolls = async () => {
+    loadInitialData()
+  }, [])
+
+  const loadPayrolls = useCallback(async () => {
+    setIsLoading(true)
     try {
-      setIsLoading(true)
       const payrolls = await getPayrollsByPeriod(selectedMonth, selectedYear)
       setCalculatedPayrolls(payrolls)
     } catch (error) {
@@ -81,43 +76,33 @@ export default function PayrollPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-   const handleCalculatePayroll = async () => {
+  }, [selectedMonth, selectedYear])
+
+  useEffect(() => {
+    loadPayrolls()
+  }, [loadPayrolls])
+
+  const handleCalculatePayroll = async () => {
     try {
       setIsCalculating(true)
-      
-      // Confirmar si ya existen nóminas para este período
+
       if (calculatedPayrolls.length > 0) {
-        const confirm = window.confirm(
+        const confirmReplace = window.confirm(
           `Ya existen ${calculatedPayrolls.length} nóminas para ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}. ¿Deseas recalcular y reemplazarlas?`
         )
-        if (!confirm) {
-          setIsCalculating(false)
-          return
-        }
-        
-        // Eliminar nóminas existentes
+        if (!confirmReplace) return
         await deletePayrollsByPeriod(selectedMonth, selectedYear)
-        setCalculatedPayrolls([])
       }
 
-      // Calcular nóminas para empleados activos
-      const activeEmployees = employees.filter((e) => e.status === "active")
-      
-      if (activeEmployees.length === 0) {
+      const activeEmployees = employees.filter(e => e.status === "active")
+      if (!activeEmployees.length) {
         alert("No hay empleados activos para procesar")
-        setIsCalculating(false)
         return
       }
 
-      const newPayrolls = activeEmployees.map((employee) =>
-        calculatePayroll(employee, novelties, selectedMonth, selectedYear)
-      )
-
-      // Guardar en Supabase
+      const newPayrolls = activeEmployees.map(e => calculatePayroll(e, novelties, selectedMonth, selectedYear))
       await createBulkPayrolls(newPayrolls)
 
-      // 🔁 Luego recarga desde la base real
       const updatedPayrolls = await getPayrollsByPeriod(selectedMonth, selectedYear)
       setCalculatedPayrolls(updatedPayrolls)
     } catch (error: any) {
@@ -127,17 +112,17 @@ export default function PayrollPage() {
       setIsCalculating(false)
     }
   }
+
   const handleDeletePayrolls = async () => {
-    if (calculatedPayrolls.length === 0) {
+    if (!calculatedPayrolls.length) {
       alert("No hay nóminas para eliminar en este período")
       return
     }
 
-    const confirm = window.confirm(
+    const confirmDelete = window.confirm(
       `¿Estás seguro de eliminar ${calculatedPayrolls.length} nóminas de ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}?`
     )
-    
-    if (!confirm) return
+    if (!confirmDelete) return
 
     try {
       setIsLoading(true)
@@ -153,26 +138,22 @@ export default function PayrollPage() {
   }
 
   const handleDownloadPDF = (payroll: Payroll) => {
-    const employee = employees.find((e) => e.id === payroll.employee_id)
-    if (employee) {
-      generatePayrollPDF(payroll, employee)
-    }
+    const employee = employees.find(e => e.id === payroll.employee_id)
+    if (employee) generatePayrollPDF(payroll, employee)
   }
 
   const handleDownloadAllPDFs = () => {
     calculatedPayrolls.forEach((payroll, index) => {
-      const employee = employees.find((e) => e.id === payroll.employee_id)
-      if (employee) {
-        setTimeout(() => generatePayrollPDF(payroll, employee), index * 500)
-      }
+      const employee = employees.find(e => e.id === payroll.employee_id)
+      if (employee) setTimeout(() => generatePayrollPDF(payroll, employee), index * 400)
     })
   }
 
+  const totalEarnings = useMemo(() => calculatedPayrolls.reduce((sum, p) => sum + p.total_earnings, 0), [calculatedPayrolls])
+  const totalDeductions = useMemo(() => calculatedPayrolls.reduce((sum, p) => sum + p.total_deductions, 0), [calculatedPayrolls])
+  const totalPayroll = useMemo(() => calculatedPayrolls.reduce((sum, p) => sum + p.net_salary, 0), [calculatedPayrolls])
 
-  const totalPayroll = calculatedPayrolls.reduce((sum, p) => sum + p.net_salary, 0)
-  const totalEarnings = calculatedPayrolls.reduce((sum, p) => sum + p.total_earnings, 0)
-  const totalDeductions = calculatedPayrolls.reduce((sum, p) => sum + p.total_deductions, 0)
-   if (isLoading && employees.length === 0) {
+  if (isLoading && !employees.length) {
     return (
       <div className="p-8 flex items-center justify-center">
         <div className="text-center">
@@ -182,31 +163,30 @@ export default function PayrollPage() {
       </div>
     )
   }
+
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <div className="p-8 space-y-8">
+      <div>
         <h1 className="text-3xl font-bold">Cálculo de Nómina</h1>
         <p className="text-muted-foreground mt-1">Procesa la nómina mensual y genera comprobantes</p>
       </div>
-    <a href="/dashboard">
-      <Button className="mb-4">
-        Volver al Dashboard
-      </Button>
-    </a> 
-      <Card className="mb-6">
+
+      <a href="/dashboard">
+        <Button variant="secondary">Volver al Dashboard</Button>
+      </a>
+
+      <Card>
         <CardHeader>
           <CardTitle>Seleccionar Período</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-4">
-            <div className="flex-1 space-y-2">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div>
               <label className="text-sm font-medium">Mes</label>
-              <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(Number.parseInt(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={selectedMonth.toString()} onValueChange={v => setSelectedMonth(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {months.map((month) => (
+                  {months.map(month => (
                     <SelectItem key={month.value} value={month.value.toString()}>
                       {month.label}
                     </SelectItem>
@@ -214,14 +194,13 @@ export default function PayrollPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-1 space-y-2">
+
+            <div>
               <label className="text-sm font-medium">Año</label>
-              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(Number.parseInt(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={selectedYear.toString()} onValueChange={v => setSelectedYear(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {years.map((year) => (
+                  {years.map(year => (
                     <SelectItem key={year} value={year.toString()}>
                       {year}
                     </SelectItem>
@@ -229,7 +208,8 @@ export default function PayrollPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleCalculatePayroll} disabled={isCalculating} className="flex-1">
+
+            <Button onClick={handleCalculatePayroll} disabled={isCalculating} className="mt-6">
               <Calculator className="mr-2 h-4 w-4" />
               {isCalculating ? "Calculando..." : "Calcular Nómina"}
             </Button>
@@ -239,31 +219,10 @@ export default function PayrollPage() {
 
       {calculatedPayrolls.length > 0 && (
         <>
-          <div className="grid gap-6 md:grid-cols-3 mb-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Devengado</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">${totalEarnings.toLocaleString("es-CO")}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Deducciones</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">${totalDeductions.toLocaleString("es-CO")}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Neto a Pagar</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${totalPayroll.toLocaleString("es-CO")}</div>
-              </CardContent>
-            </Card>
+          <div className="grid gap-6 md:grid-cols-3">
+            <SummaryCard title="Total Devengado" value={totalEarnings} color="text-green-600" />
+            <SummaryCard title="Total Deducciones" value={totalDeductions} color="text-red-600" />
+            <SummaryCard title="Neto a Pagar" value={totalPayroll} />
           </div>
 
           <Card>
@@ -272,7 +231,7 @@ export default function PayrollPage() {
                 <CardTitle>Nómina Calculada</CardTitle>
                 <Button onClick={handleDownloadAllPDFs} variant="outline">
                   <Download className="mr-2 h-4 w-4" />
-                  Descargar Todos los PDFs
+                  Descargar Todos
                 </Button>
               </div>
             </CardHeader>
@@ -290,13 +249,11 @@ export default function PayrollPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {calculatedPayrolls.map((payroll) => {
-                    const employee = employees.find((e) => e.id === payroll.employee_id)
+                  {calculatedPayrolls.map(payroll => {
+                    const employee = employees.find(e => e.id === payroll.employee_id)
                     return (
                       <TableRow key={payroll.id}>
-                        <TableCell className="font-medium">
-                          {employee?.first_name} {employee?.last_name}
-                        </TableCell>
+                        <TableCell className="font-medium">{employee?.first_name} {employee?.last_name}</TableCell>
                         <TableCell>${payroll.base_salary.toLocaleString("es-CO")}</TableCell>
                         <TableCell className="text-green-600">${payroll.bonuses.toLocaleString("es-CO")}</TableCell>
                         <TableCell className="text-green-600">${payroll.overtime.toLocaleString("es-CO")}</TableCell>
@@ -317,5 +274,18 @@ export default function PayrollPage() {
         </>
       )}
     </div>
+  )
+}
+
+function SummaryCard({ title, value, color }: { title: string; value: number; color?: string }) {
+  return (
+    <Card className="transition-all hover:shadow-md">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm text-muted-foreground">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className={`text-2xl font-bold ${color ?? ""}`}>${value.toLocaleString("es-CO")}</div>
+      </CardContent>
+    </Card>
   )
 }

@@ -23,11 +23,16 @@ export function AppSidebar() {
     document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT"
     router.push("/login")
   }
-
   return (
     <div className="flex h-full w-64 flex-col bg-card border-r">
-      <div className="flex h-16 items-center border-b px-6">
-        <h1 className="text-xl font-bold">Sistema PAE</h1>
+      <div className="flex h-16 items-center border-b px-16 ">
+        <h1 className="text-2xl font-bold">
+          <p className="text-black-700"> 
+              <span>
+                 FUPADESO
+              </span>
+          </p>
+        </h1>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {

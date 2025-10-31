@@ -51,12 +51,12 @@ export function exportReportToPDF(month: number, year: number, employees: Employ
     "Diciembre",
   ]
 
-  const periodPayrolls = payrolls.filter((p) => p.periodMonth === month && p.periodYear === year)
+  const periodPayrolls = payrolls.filter((p) => p.period_month === month && p.period_year === year)
   const activeEmployees = employees.filter((e) => e.status === "active")
 
-  const totalPayroll = periodPayrolls.reduce((sum, p) => sum + p.netSalary, 0)
-  const totalEarnings = periodPayrolls.reduce((sum, p) => sum + p.totalEarnings, 0)
-  const totalDeductions = periodPayrolls.reduce((sum, p) => sum + p.totalDeductions, 0)
+  const totalPayroll = periodPayrolls.reduce((sum, p) => sum + p.net_salary, 0)
+  const totalEarnings = periodPayrolls.reduce((sum, p) => sum + p.total_earnings, 0)
+  const totalDeductions = periodPayrolls.reduce((sum, p) => sum + p.total_deductions, 0)
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -188,16 +188,16 @@ export function exportReportToPDF(month: number, year: number, employees: Employ
         <tbody>
           ${periodPayrolls
             .map((payroll) => {
-              const employee = employees.find((e) => e.id === payroll.employeeId)
+              const employee = employees.find((e) => e.id === payroll.employee_id)
               return `
             <tr>
-              <td>${employee?.firstName} ${employee?.lastName}</td>
+              <td>${employee?.first_name} ${employee?.last_name}</td>
               <td>${employee?.identification}</td>
               <td>${employee?.position}</td>
-              <td>$${payroll.baseSalary.toLocaleString("es-CO")}</td>
+              <td>$${payroll.base_salary.toLocaleString("es-CO")}</td>
               <td>$${payroll.bonuses.toLocaleString("es-CO")}</td>
               <td>$${payroll.deductions.toLocaleString("es-CO")}</td>
-              <td><strong>$${payroll.netSalary.toLocaleString("es-CO")}</strong></td>
+              <td><strong>$${payroll.net_salary.toLocaleString("es-CO")}</strong></td>
             </tr>
           `
             })
@@ -223,8 +223,8 @@ export function exportReportToPDF(month: number, year: number, employees: Employ
                   acc[dept] = { count: 0, total: 0 }
                 }
                 acc[dept].count += 1
-                const empPayroll = periodPayrolls.find((p) => p.employeeId === emp.id)
-                acc[dept].total += empPayroll?.netSalary || 0
+                const empPayroll = periodPayrolls.find((p) => p.employee_id === emp.id)
+                acc[dept].total += empPayroll?.net_salary || 0
                 return acc
               },
               {} as Record<string, { count: number; total: number }>,

@@ -130,9 +130,9 @@ const handleSubmit = async (e: React.FormEvent) => {
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="employeeId">Empleado *</Label>
+              <Label htmlFor="employee_id">Empleado *</Label>
               <Select value={formData.employee_id} onValueChange={(value) => handleChange("employee_id", value)}>
-                <SelectTrigger id="employeeId">
+                <SelectTrigger id="employee_id">
                   <SelectValue placeholder="Selecciona un empleado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -158,7 +158,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="space-y-2">
                 <Label htmlFor="noveltyType">Tipo de Novedad *</Label>
                 <Select value={formData.novelty_type} onValueChange={(value) => handleChange("novelty_type", value)}>
-                  <SelectTrigger id="noveltyType">
+                  <SelectTrigger id="novelty_type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

@@ -7,9 +7,9 @@ import { Suspense } from "react"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Sistema de Nómina PAE",
+  title: "Fupadeso Nómina 2025",
   description: "Sistema de gestión de nómina y empleados",
-  generator: "v0.app",
+  
 }
 
 export default function RootLayout({
