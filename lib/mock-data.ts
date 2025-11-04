@@ -16,6 +16,17 @@ export async function deleteEmployee(id: string): Promise<void> {
   if (error) throw error
 }
 
+export async function createBulkEmployees(employees: Omit<Employee, "id">[]): Promise<Employee[]> {
+  if (!employees.length) return []
+  // Insert in a single statement; Supabase/Postgres will handle up to thousands of rows
+  const { data, error } = await supabase
+    .from("employees")
+    .insert(employees)
+    .select()
+  if (error) throw error
+  return (data ?? []) as Employee[]
+}
+
 // CRUD Novedades
 // CRUD Novedades
 export async function createNovelty(novelty: Omit<PayrollNovelty, "id">): Promise<PayrollNovelty | null> {

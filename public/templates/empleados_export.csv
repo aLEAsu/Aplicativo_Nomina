@@ -1,0 +1,5 @@
+identification,first_name,last_name,email,phone,position,department,base_salary,hire_date,status
+321564789,TEST,TEST01,test@gmail.com,3105601729,Tecnico,Sistemas,1500000,2025-10-27,active
+97480360,"ALEJO ",VIDAL,CCORDOBA@GMAIL.COM,1234567891,Coordinador,Logistico,1500000,2025-10-01,active
+1124312437,"KATRINA ",VIDAL,Abur@gmail.com,1234567891,Coordinador,Logistico,1500000,2025-10-01,active
+71270531,MONICA,AMOR,jrico@gmail.com,32145698742,Coordinador,Logistico,3000000,2025-10-01,active

@@ -1,6 +1,9 @@
-import type { Payroll, Employee } from "./mock-data"
+import type { Payroll, Employee, PayrollNovelty } from "./mock-data"
 
-export function generatePayrollPDF(payroll: Payroll, employee: Employee) {
+export function generatePayrollPDF(payroll: Payroll, employee: Employee, periodNovelties?: PayrollNovelty[]) {
+  const deductionNovelties = (periodNovelties || []).filter(n => ["deduction","absence","loan"].includes(n.novelty_type))
+  const earningNovelties = (periodNovelties || []).filter(n => ["bonus","overtime","commission"].includes(n.novelty_type))
+  const otherDeductionsAmount = Math.max(0, payroll.deductions - payroll.base_salary * 0.08)
   // Crear contenido HTML para el PDF
   const htmlContent = `
     <!DOCTYPE html>
@@ -78,7 +81,7 @@ export function generatePayrollPDF(payroll: Payroll, employee: Employee) {
     </head>
     <body>
       <div class="header">
-        <div class="company-name">EMPRESA S.A.S.</div>
+        <div class="company-name">FUP</div>
         <div class="document-title">Comprobante de Nómina</div>
       </div>
 
@@ -151,6 +154,15 @@ export function generatePayrollPDF(payroll: Payroll, employee: Employee) {
           `
               : ""
           }
+          ${
+            earningNovelties.length > 0
+              ? earningNovelties.map(n => `
+          <tr>
+            <td>Ingreso por novedad: ${escapeHtml(n.description || n.novelty_type)}</td>
+            <td style="text-align: right;">$${Number(n.amount || 0).toLocaleString("es-CO")}</td>
+          </tr>`).join("")
+              : ""
+          }
           <tr class="total-row">
             <td>Total Devengado</td>
             <td style="text-align: right;">$${payroll.total_earnings.toLocaleString("es-CO")}</td>
@@ -166,16 +178,22 @@ export function generatePayrollPDF(payroll: Payroll, employee: Employee) {
             <td>Pensión (4%)</td>
             <td style="text-align: right; color: #d32f2f;">-$${(payroll.base_salary * 0.04).toLocaleString("es-CO")}</td>
           </tr>
-          ${
-            payroll.deductions - payroll.base_salary * 0.08 > 0
-              ? `
+          ${deductionNovelties.length > 0 ? `
+          <tr>
+            <td colspan="2" style="background:#fafafa;font-weight:bold">Deducciones por Novedades</td>
+          </tr>
+          ${deductionNovelties.map(n => `
+          <tr>
+            <td>${escapeHtml(n.description || n.novelty_type)}</td>
+            <td style="text-align: right; color: #d32f2f;">-$${Number(n.amount || 0).toLocaleString("es-CO")}</td>
+          </tr>`).join("")}
+          ` : ""}
+          ${otherDeductionsAmount > 0 ? `
           <tr>
             <td>Otras Deducciones</td>
-            <td style="text-align: right; color: #d32f2f;">-$${(payroll.deductions - payroll.base_salary * 0.08).toLocaleString("es-CO")}</td>
+            <td style="text-align: right; color: #d32f2f;">-$${otherDeductionsAmount.toLocaleString("es-CO")}</td>
           </tr>
-          `
-              : ""
-          }
+          ` : ""}
           <tr class="total-row">
             <td>Total Deducciones</td>
             <td style="text-align: right; color: #d32f2f;">-$${payroll.total_deductions.toLocaleString("es-CO")}</td>
@@ -226,4 +244,13 @@ function getMonthName(month: number): string {
     "Diciembre",
   ]
   return months[month - 1]
+}
+
+function escapeHtml(str: string) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
 }

@@ -139,13 +139,15 @@ export default function PayrollPage() {
 
   const handleDownloadPDF = (payroll: Payroll) => {
     const employee = employees.find(e => e.id === payroll.employee_id)
-    if (employee) generatePayrollPDF(payroll, employee)
+    const periodNovelties = novelties.filter(n => n.employee_id === payroll.employee_id && n.date) // ya vienen todas, se listan todas del período si tuvieras filtro de fecha en cálculo
+    if (employee) generatePayrollPDF(payroll, employee, periodNovelties)
   }
 
   const handleDownloadAllPDFs = () => {
     calculatedPayrolls.forEach((payroll, index) => {
       const employee = employees.find(e => e.id === payroll.employee_id)
-      if (employee) setTimeout(() => generatePayrollPDF(payroll, employee), index * 400)
+      const periodNovelties = novelties.filter(n => n.employee_id === payroll.employee_id && n.date)
+      if (employee) setTimeout(() => generatePayrollPDF(payroll, employee, periodNovelties), index * 400)
     })
   }
 

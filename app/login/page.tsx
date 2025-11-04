@@ -21,38 +21,21 @@ export default function LoginPage() {
     setError("")
     setLoading(true)
 
-    console.log("[v0] Intentando login con:", email)
-
     try {
       const { user, error: supaError } = await signIn(email, password)
-
-      console.log("[v0] Resultado de signIn:", user, supaError)
-
-      console.log("[LOGIN] Cookies antes:", document.cookie);
 
       if (!user) {
         setError(supaError || "Credenciales inválidas");
         setLoading(false);
-        console.log("[LOGIN] Cookies después (fallo):", document.cookie);
         return;
       }
 
-      // Establecer la cookie de sesión manualmente
-      document.cookie = "session=true; path=/; max-age=86400";
-
-      // Establecer cookie 'session' que usa el middleware para permitir rutas protegidas
-      try {
-        document.cookie = "session=true; path=/; max-age=86400"
-        console.log("[LOGIN] Cookie 'session' establecida:", document.cookie)
-      } catch (err) {
-        console.warn("[LOGIN] No se pudo establecer la cookie 'session':", err)
-      }
-
-      // Esperar un momento breve para asegurarnos que la cookie esté presente antes de redirigir
+      // Establecer cookie de sesión para el middleware
+      document.cookie = "session=true; path=/; max-age=86400"
+      // Pequeño defer para asegurar persistencia de cookie antes de navegar
       setTimeout(() => {
-        console.log("[LOGIN] Cookies antes de redirigir:", document.cookie)
-        window.location.href = "/dashboard"
-      }, 250)
+        router.replace("/dashboard")
+      }, 100)
     } catch (err) {
       console.error("[v0] Error en login:", err)
       setError("Error al iniciar sesión")
@@ -61,12 +44,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Sistema de Nómina PAE</CardTitle>
-          <CardDescription className="text-center">Ingresa tus credenciales para acceder al sistema</CardDescription>
-        </CardHeader>
+    <div className="min-h-screen bg-[radial-gradient(1000px_500px_at_80%_-10%,hsl(var(--primary)/0.12),transparent_60%),radial-gradient(900px_450px_at_-10%_10%,hsl(var(--muted-foreground)/0.08),transparent_60%)]">
+      <div className="mx-auto flex min-h-screen max-w-[1400px] items-center justify-center p-6">
+        <Card className="w-full max-w-md border-border/60 shadow-sm">
+          <CardHeader className="space-y-1 text-center">
+            <div className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-md bg-primary text-primary-foreground">A</div>
+            <CardTitle className="text-2xl font-semibold tracking-tight">Acceso Administrador</CardTitle>
+            <CardDescription>Ingresa tus credenciales para continuar</CardDescription>
+          </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -83,6 +68,8 @@ export default function LoginPage() {
                 }}
                 required
                 disabled={loading}
+                  autoFocus
+                  spellCheck={false}
               />
             </div>
             <div className="space-y-2">
@@ -90,6 +77,7 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
+                  autoComplete="current-password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value)
@@ -104,13 +92,10 @@ export default function LoginPage() {
               {loading ? "Iniciando sesión..." : "Iniciar sesión"}
             </Button>
           </form>
-          <div className="mt-6 p-4 bg-muted rounded-md text-sm">
-            <p className="font-semibold mb-2">Credenciales de prueba:</p>
-            <p className="text-muted-foreground">Admin: admin@empresa.com / admin123</p>
-            <p className="text-muted-foreground">Usuario: usuario@empresa.com / user123</p>
-          </div>
+          <div className="mt-6 rounded-md bg-muted p-3 text-xs text-muted-foreground">Solo para uso del administrador</div>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   )
 }

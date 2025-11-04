@@ -1,0 +1,4 @@
+identification,first_name,last_name,email,phone,position,department,base_salary,hire_date,status
+1234567890,Juan,Perez,juan.perez@example.com,3001234567,Analista,Operaciones,3500000,2023-01-15,active
+9876543210,Ana,Garcia,ana.garcia@example.com,3009876543,Coordinadora,Recursos Humanos,4800000,2022-09-01,active
+

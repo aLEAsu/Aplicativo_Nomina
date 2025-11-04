@@ -15,6 +15,7 @@ import {
   type Payroll,
 } from "@/lib/mock-data"
 import { exportToCSV, exportReportToPDF } from "@/lib/export-utils"
+import Link from "next/link"
 import {
   BarChart,
   Bar,
@@ -182,9 +183,9 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reportes y Análisis</h1>
           <p className="text-muted-foreground">Visualiza estadísticas y exporta información</p>
-          <a href="/dashboard">
+          <Link href="/dashboard">
             <Button variant="outline" className="mt-4">Volver al Dashboard</Button>
-          </a>
+          </Link>
         </div>
 
         <div className="flex gap-2">

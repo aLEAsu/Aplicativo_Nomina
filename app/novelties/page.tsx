@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useDeferredValue } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import { NoveltyDialog } from "@/components/novelty-dialog"
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { deleteNovelty } from "@/lib/mock-data"
+import Link from "next/link"
 
 
 const noveltyTypeLabels: Record<PayrollNovelty["novelty_type"], string> = {
@@ -35,6 +36,7 @@ const noveltyTypeColors: Record<PayrollNovelty["novelty_type"], "default" | "sec
 export default function NoveltiesPage() {
   const [novelties, setNovelties] = useState<PayrollNovelty[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const deferredSearchTerm = useDeferredValue(searchTerm)
   const [filterType, setFilterType] = useState<string>("all")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -67,17 +69,25 @@ export default function NoveltiesPage() {
   fetchEmployees()
   }, [])
 
+  const employeeMap = useMemo(() => {
+    const map = new Map<number, Employee>()
+    for (const e of employees) map.set(e.id, e)
+    return map
+  }, [employees])
 
-  const filteredNovelties = (novelties ?? []).filter((novelty) => {
-    const employee = employees.find((e) => e.id === novelty.employee_id)
-    const matchesSearch =
-      employee?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      novelty.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredNovelties = useMemo(() => {
+    const term = deferredSearchTerm.toLowerCase()
+    return (novelties ?? []).filter((novelty) => {
+      const employee = employeeMap.get(novelty.employee_id)
+      const matchesSearch =
+        employee?.first_name?.toLowerCase().includes(term) ||
+        employee?.last_name?.toLowerCase().includes(term) ||
+        novelty.description?.toLowerCase().includes(term)
 
-    const matchesType = filterType === "all" || novelty.novelty_type === filterType
-    return matchesSearch && matchesType
-  })
+      const matchesType = filterType === "all" || novelty.novelty_type === filterType
+      return matchesSearch && matchesType
+    })
+  }, [novelties, employeeMap, deferredSearchTerm, filterType])
 
   const handleAddNovelty = () => {
     setSelectedNovelty(null)
@@ -135,11 +145,11 @@ export default function NoveltiesPage() {
         <div>
           <h1 className="text-3xl font-bold">Novedades de Nómina</h1>
           <p className="text-muted-foreground mt-1">Registra bonos, deducciones y otros conceptos</p>
-          <a href="/dashboard">
+          <Link href="/dashboard">
             <Button className=" mt-4">
               Volver al Dashboard
             </Button>
-          </a>
+          </Link>
         </div>
         
         <Button onClick={handleAddNovelty}>
