@@ -31,11 +31,17 @@ export default function EmployeesPage() {
   const [showAllPreview, setShowAllPreview] = useState(false)
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-
+  
   const handleClickImport = useCallback(() => {
     fileInputRef.current?.click()
   }, [])
-
+  function getDisplaySalary(emp: Employee): string {
+  if (emp.contract_type === 'daily') {
+    const monthlyEstimate = emp.daily_rate * emp.working_days
+    return `$${emp.daily_rate.toLocaleString('es-CO')}/día (${emp.working_days}d = $${monthlyEstimate.toLocaleString('es-CO')})`
+  }
+  return `$${emp.base_salary.toLocaleString('es-CO')}/mes`
+}
   const handleExportEmployeesCSV = useCallback(async () => {
     try {
       const Papa = (await import("papaparse")).default
@@ -139,6 +145,9 @@ export default function EmployeesPage() {
           base_salary: employee.base_salary,
           hire_date: employee.hire_date,
           status: employee.status,
+          contract_type: employee.contract_type,
+          daily_rate: employee.daily_rate ??0,
+          working_days: employee.working_days ??0,
         }
 
         selectedEmployee ? await updateEmployee(employee.id, data) : await createEmployee(data)
@@ -255,6 +264,7 @@ export default function EmployeesPage() {
                   <TableHead className="font-semibold text-foreground/80">Departamento</TableHead>
                   <TableHead className="font-semibold text-foreground/80">Salario Base</TableHead>
                   <TableHead className="font-semibold text-foreground/80">Estado</TableHead>
+                  <TableHead className="font-semibold text-foreground/80">Tipo Contrato</TableHead>
                   <TableHead className="text-right font-semibold text-foreground/80">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -281,8 +291,14 @@ export default function EmployeesPage() {
                       </TableCell>
                       <TableCell className="text-foreground/80">{emp.position}</TableCell>
                       <TableCell className="text-foreground/80">{emp.department}</TableCell>
+          
                       <TableCell className="font-medium text-foreground/85">
-                        ${emp.base_salary.toLocaleString("es-CO")}
+                        <div className="flex flex-col">
+                            <span className="text-sm">{getDisplaySalary(emp)}</span>
+                            {emp.contract_type === 'daily' && (
+                                <span className="text-xs text-muted-foreground">Trabajador por día</span>
+                            )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -294,6 +310,11 @@ export default function EmployeesPage() {
                           }
                         >
                           {emp.status === "active" ? "Activo" : "Inactivo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={emp.contract_type === 'monthly' ? 'default' : 'secondary'}>
+                          {emp.contract_type === 'monthly' ? '💼 Mensual' : '📅 Por Día'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">

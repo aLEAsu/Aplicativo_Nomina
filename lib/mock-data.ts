@@ -197,6 +197,9 @@ export interface Employee {
   base_salary: number
   hire_date: string
   status: "active" | "inactive"
+  contact_type: "monthly" | "daily"
+  daily_rate: number
+  working_days: number
 }
 
 export interface PayrollNovelty {
@@ -241,4 +244,58 @@ export async function getPayrolls(): Promise<Payroll[]> {
   const { data, error } = await supabase.from("payrolls").select("*")
   if (error) throw error
   return data as Payroll[]
+}
+// lib/mock-data.ts - ACTUALIZACIÓN
+
+export type ContractType = 'monthly' | 'daily'
+
+export interface Employee {
+  id: string
+  identification: string
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  position: string
+  department: string
+  
+  // 🆕 Campos para manejo de contratos
+  contract_type: ContractType
+  base_salary: number      // Para empleados mensuales
+  daily_rate: number       // Para trabajadores por día
+  working_days: number     // Días trabajados en el período actual
+  
+  hire_date: string
+  status: "active" | "inactive"
+}
+
+// Helper para calcular salario efectivo
+export function getEffectiveSalary(employee: Employee): number {
+  if (employee.contract_type === 'daily') {
+    return employee.daily_rate * employee.working_days
+  }
+  return employee.base_salary
+}
+
+// Helper para validación
+export function validateEmployeeData(employee: Partial<Employee>): string[] {
+  const errors: string[] = []
+  
+  if (employee.contract_type === 'monthly' && (!employee.base_salary || employee.base_salary <= 0)) {
+    errors.push('El salario base es requerido para empleados mensuales')
+  }
+  
+  if (employee.contract_type === 'daily' && (!employee.daily_rate || employee.daily_rate <= 0)) {
+    errors.push('El valor día es requerido para trabajadores por día')
+  }
+  
+  return errors
+}
+// 🆕 Función helper para actualizar días trabajados
+export function updateWorkingDays(
+  employeeId: string, 
+  workingDays: number
+): Promise<Employee | null> {
+  // Esta función se implementaría en tu lib/mock-data.ts
+  return updateEmployee(employeeId, { working_days: workingDays })
 }

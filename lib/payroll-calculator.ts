@@ -1,3 +1,5 @@
+// lib/payroll-calculator.ts - VERSIÓN ACTUALIZADA
+
 import type { Employee, PayrollNovelty, Payroll } from "./mock-data"
 
 export function calculatePayroll(
@@ -6,6 +8,11 @@ export function calculatePayroll(
   month: number,
   year: number,
 ): Payroll {
+  // 🆕 Calcular salario base según tipo de contrato
+  const effectiveBaseSalary = employee.contract_type === 'daily' 
+    ? employee.daily_rate * employee.working_days 
+    : employee.base_salary
+
   // Filtrar novedades del empleado para el mes seleccionado
   const employeeNovelties = novelties.filter((n) => {
     const noveltyDate = new Date(n.date)
@@ -29,16 +36,15 @@ export function calculatePayroll(
     .filter((n) => n.novelty_type === "commission")
     .reduce((sum, n) => sum + n.amount, 0)
 
-  // ✅ Solo deducciones reales (sin salud ni pensión todavía)
   const otherDeductions = employeeNovelties
     .filter((n) => ["deduction", "absence", "loan"].includes(n.novelty_type))
     .reduce((sum, n) => sum + n.amount, 0)
 
-  // 💡 Calcular salud y pensión pero registrarlas aparte, no sumarlas al campo "deductions"
-  const healthContribution = employee.base_salary * 0.04
-  const pensionContribution = employee.base_salary * 0.04
+  // 🆕 Calcular contribuciones basadas en el salario efectivo
+  const healthContribution = effectiveBaseSalary * 0.04
+  const pensionContribution = effectiveBaseSalary * 0.04
 
-  const total_earnings = employee.base_salary + bonuses + overtime + commissions
+  const total_earnings = effectiveBaseSalary + bonuses + overtime + commissions
   const total_deductions = otherDeductions + healthContribution + pensionContribution
   const net_salary = total_earnings - total_deductions
 
@@ -47,12 +53,10 @@ export function calculatePayroll(
     employee_id: employee.id,
     period_month: month,
     period_year: year,
-    base_salary: employee.base_salary,
+    base_salary: effectiveBaseSalary, // 🆕 Guardar el salario efectivo calculado
     bonuses,
     overtime,
     commissions,
-    // ⚠️ Aquí la corrección clave:
-    // Solo guardamos deducciones de novedades (no salud ni pensión)
     deductions: otherDeductions,
     total_earnings,
     total_deductions,
@@ -60,3 +64,4 @@ export function calculatePayroll(
     processed_at: new Date().toISOString(),
   }
 }
+
