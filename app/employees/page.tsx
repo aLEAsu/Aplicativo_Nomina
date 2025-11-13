@@ -153,8 +153,8 @@ export default function EmployeesPage() {
           working_days: employee.working_days ??0,
         }
         selectedEmployee ? await updateEmployee(employee.id, data) : await createEmployee(data)
-        await loadEmployees()
         setDialogOpen(false)
+        await loadEmployees()
       } catch (err: any) {
         alert("Error al guardar empleado: " + (err?.message || JSON.stringify(err)))
       }
@@ -614,11 +614,20 @@ export default function EmployeesPage() {
                   emp.department &&
                   emp.hire_date,
               )
-              const salaryOk =
-                typeof emp.base_salary === "number" && !Number.isNaN(emp.base_salary) && (emp.base_salary as number) > 0
-                emp.contract_type === "daily"
-                ? typeof emp.daily_rate === "number" && emp.daily_rate > 0 && typeof emp.working_days === "number" && emp.working_days > 0
-                : typeof emp.base_salary === "number" && emp.base_salary > 0
+              // ✅ Validación correcta según tipo de contrato
+              let salaryOk = false
+              if (emp.contract_type === "daily") {
+                salaryOk =
+                  typeof emp.daily_rate === "number" &&
+                  emp.daily_rate > 0 &&
+                  typeof emp.working_days === "number" &&
+                  emp.working_days >= 0
+              } else {
+                salaryOk =
+                  typeof emp.base_salary === "number" &&
+                  !Number.isNaN(emp.base_salary) &&
+                  emp.base_salary > 0
+              }
               const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emp.email || "")
               const statusOk = emp.status === "active" || emp.status === "inactive"
               if (!requiredOk) errors.push(`Fila ${idx + 2}: faltan campos obligatorios`)

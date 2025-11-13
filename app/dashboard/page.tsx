@@ -64,7 +64,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let isMounted = true
-    
+
     const loadDashboardData = async () => {
       try {
         setIsLoading(true)
@@ -72,7 +72,7 @@ export default function DashboardPage() {
         // Verificar autenticación primero (usa caché para evitar llamadas repetidas)
         const currentUser = await getCurrentUser()
         if (!isMounted) return
-        
+
         setUser(currentUser)
 
         if (!currentUser) {
@@ -82,9 +82,9 @@ export default function DashboardPage() {
 
         // Cargar todos los datos en paralelo (mucho más rápido que secuencial)
         const [empsData, novsData, payrollsData] = await Promise.all([getEmployees(), getNovelties(), getPayrolls()])
-        
+
         if (!isMounted) return
-        
+
         setEmployees(empsData)
         setNovelties(novsData)
         setPayrolls(payrollsData)
@@ -98,7 +98,7 @@ export default function DashboardPage() {
     }
 
     loadDashboardData()
-    
+
     return () => {
       isMounted = false
     }
@@ -106,7 +106,7 @@ export default function DashboardPage() {
 
   const stats = useMemo(() => {
     const activeEmployees = employees.filter((e) => e.status === "active").length
-    const totalPayroll = payrolls.reduce((sum, p) => sum + p.net_salary, 0)
+    const totalPayroll = payrolls.reduce((sum, p) => sum + p.total_earnings, 0)
     const lastPayroll = payrolls[0]
 
     return {
@@ -139,7 +139,9 @@ export default function DashboardPage() {
               <Button className="shadow-sm">Procesar nómina</Button>
             </Link>
             <Link href="/reports">
-              <Button variant="outline" className="bg-transparent">Ver reportes</Button>
+              <Button variant="outline" className="bg-transparent">
+                Ver reportes
+              </Button>
             </Link>
           </div>
         </div>
@@ -162,7 +164,7 @@ export default function DashboardPage() {
 
         <StatCard
           title="Última Nómina"
-          value={`$${stats.lastPayroll?.net_salary?.toLocaleString("es-CO") || "0"}`}
+          value={`$${stats.lastPayroll?.total_earnings?.toLocaleString("es-CO") || "0"}`}
           description={`Procesada el ${stats.lastPayroll ? new Date(stats.lastPayroll.processed_at).toLocaleDateString("es-CO") : "N/A"}`}
           icon={DollarSign}
         />
@@ -174,7 +176,7 @@ export default function DashboardPage() {
           icon={TrendingUp}
         />
       </div>
-
+      
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <Card className="border-border/60">
           <CardHeader>

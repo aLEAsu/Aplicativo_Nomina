@@ -87,18 +87,10 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSave }: Employe
         working_days: formData.contract_type === 'daily' ? Number(formData.working_days) : 0
       } as Employee
 
-      // Crear o actualizar
-      let savedEmployee: Employee | null
-      if (employee?.id) {
-        savedEmployee = await updateEmployee(employee.id, employeeData)
-      } else {
-        savedEmployee = await createEmployee(employeeData as Omit<Employee, "id">)
-      }
+      // ✅ Solo pasar los datos al padre
+      onSave(employeeData as Employee)
+      onOpenChange(false)
 
-      if (savedEmployee) {
-        onSave(savedEmployee)
-        onOpenChange(false)
-      }
     } catch (error: any) {
       console.error('Error al guardar empleado:', error)
       setErrors([error.message || 'Error al guardar el empleado'])
