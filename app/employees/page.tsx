@@ -57,6 +57,9 @@ export default function EmployeesPage() {
           base_salary: e.base_salary,
           hire_date: e.hire_date,
           status: e.status,
+          contract_type: e.contract_type,
+          daily_rate: e.daily_rate,
+          working_days: e.working_days,
         })),
       )
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
@@ -149,7 +152,6 @@ export default function EmployeesPage() {
           daily_rate: employee.daily_rate ??0,
           working_days: employee.working_days ??0,
         }
-
         selectedEmployee ? await updateEmployee(employee.id, data) : await createEmployee(data)
         await loadEmployees()
         setDialogOpen(false)
@@ -159,7 +161,6 @@ export default function EmployeesPage() {
     },
     [selectedEmployee, loadEmployees],
   )
-
   const handleConfirmDelete = useCallback(async () => {
     if (!employeeToDelete) return
     await deleteEmployee(employeeToDelete.id)
@@ -167,7 +168,6 @@ export default function EmployeesPage() {
     setDeleteDialogOpen(false)
     setEmployeeToDelete(null)
   }, [employeeToDelete, loadEmployees])
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       <div className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-sm">
@@ -184,7 +184,6 @@ export default function EmployeesPage() {
               </div>
               <p className="text-muted-foreground text-sm">Administra y organiza la información de tu equipo</p>
             </div>
-
             <div className="flex gap-2 flex-wrap">
               <Button
                 onClick={handleAddEmployee}
@@ -211,7 +210,6 @@ export default function EmployeesPage() {
               </Button>
             </div>
           </div>
-
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -223,7 +221,6 @@ export default function EmployeesPage() {
           </div>
         </div>
       </div>
-
       <div className="px-6 py-8 sm:px-8 space-y-6">
         <Card className="shadow-lg border-border/50 hover:shadow-xl transition-shadow overflow-hidden">
           <CardHeader className="bg-gradient-to-r from-primary/5 to-secondary/5 border-b border-border/30 pb-4">
@@ -253,7 +250,6 @@ export default function EmployeesPage() {
               <span className="text-xs text-muted-foreground">empleados por página</span>
             </div>
           </CardHeader>
-
           <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
@@ -291,7 +287,6 @@ export default function EmployeesPage() {
                       </TableCell>
                       <TableCell className="text-foreground/80">{emp.position}</TableCell>
                       <TableCell className="text-foreground/80">{emp.department}</TableCell>
-          
                       <TableCell className="font-medium text-foreground/85">
                         <div className="flex flex-col">
                             <span className="text-sm">{getDisplaySalary(emp)}</span>
@@ -344,7 +339,6 @@ export default function EmployeesPage() {
             </Table>
           </CardContent>
         </Card>
-
         {importPreview.length > 0 && (
           <Card className="shadow-lg border-border/50">
             <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-b border-border/30 pb-4">
@@ -380,6 +374,9 @@ export default function EmployeesPage() {
                           "base_salary",
                           "hire_date",
                           "status",
+                          "contract_type",
+                          "daily_rate",
+                          "working_days",
                         ].map((h) => (
                           <th key={h} className="px-3 py-2 text-left font-semibold text-foreground/80 text-xs">
                             {h}
@@ -399,6 +396,11 @@ export default function EmployeesPage() {
                           <td className="px-3 py-2 text-xs">${Number(r.base_salary || 0).toLocaleString("es-CO")}</td>
                           <td className="px-3 py-2 text-xs">{r.hire_date as string}</td>
                           <td className="px-3 py-2 text-xs">{r.status as string}</td>
+                          <td className="px-3 py-2 text-xs">{r.contract_type as string}</td>
+                          <td className="px-3 py-2 text-xs">
+                            ${Number(r.daily_rate || 0).toLocaleString("es-CO")}
+                          </td>
+                          <td className="px-3 py-2 text-xs">{Number(r.working_days || 0)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -444,9 +446,11 @@ export default function EmployeesPage() {
                             base_salary: Number(e.base_salary || 0),
                             hire_date: String(e.hire_date || ""),
                             status: (e.status as any) || "active",
+                            contract_type: String(e.contract_type || "monthly") === 'daily' ? 'daily' : 'monthly',
+                            daily_rate: String(e.daily_rate ?? "").trim() ? Number(e.daily_rate ?? 0) : 0,
+                            working_days: String(e.working_days ?? "").trim() ? Number(e.working_days ?? 0) : 0,
                           }
                         })
-
                         try {
                           await createBulkEmployees(chunk as any)
                           totalSaved += chunk.length
@@ -468,7 +472,6 @@ export default function EmployeesPage() {
                           }
                         }
                       }
-
                       if (errors.length > 0) {
                         const errorSummary = errors.slice(0, 10).join("\n")
                         const moreErrors = errors.length > 10 ? `\n\n... y ${errors.length - 10} errores más` : ""
@@ -505,7 +508,6 @@ export default function EmployeesPage() {
             </CardContent>
           </Card>
         )}
-
         <div className="sticky bottom-6 left-0 right-0 flex justify-center">
           <Link href="/dashboard" className="drop-shadow-lg">
             <Button
@@ -517,7 +519,6 @@ export default function EmployeesPage() {
           </Link>
         </div>
       </div>
-
       <input
         ref={fileInputRef}
         type="file"
@@ -552,7 +553,6 @@ export default function EmployeesPage() {
               const ws = wb.Sheets[wb.SheetNames[0]]
               rows = XLSX.utils.sheet_to_json(ws)
             }
-
             const normalizeStatus = (s: string): "active" | "inactive" => {
               if (!s) return "active"
               const normalized = String(s).toLowerCase().trim()
@@ -564,13 +564,16 @@ export default function EmployeesPage() {
             const normalized: Partial<Employee>[] = rows.map((r, idx) => {
               const statusRaw = String(r.status ?? r.estado ?? "active").trim()
               const salaryRaw = r.base_salary ?? r.salario_base ?? r.salario ?? 0
-
               let phoneRaw = String(r.phone ?? r.telefono ?? "").trim()
               phoneRaw = phoneRaw.replace(/[\s\-$$$$]/g, "")
               if (phoneRaw.length > 20) {
                 phoneRaw = phoneRaw.substring(0, 20)
               }
-
+              const normalizeContractType = (value: string) => {
+                const v = (value ?? "").toString().trim().toLowerCase()
+                if (["daily", "día", "diario", "por día"].includes(v)) return "daily"
+                return "monthly"
+              }
               return {
                 identification: String(r.identification ?? r.cedula ?? r.document ?? "")
                   .trim()
@@ -595,6 +598,9 @@ export default function EmployeesPage() {
                 base_salary: Number(salaryRaw),
                 hire_date: String(r.hire_date ?? r.fecha_contratacion ?? r.fecha ?? "").trim(),
                 status: normalizeStatus(statusRaw) as any,
+                contract_type: normalizeContractType(r.contract_type ?? r.tipo_contrato),
+                daily_rate: String(r.daily_rate ?? r.tarifa_diaria ?? "").trim() ? Number(r.daily_rate ?? r.tarifa_diaria ?? 0) : 0,
+                working_days: String(r.working_days ?? r.dias_laborados ?? "").trim() ? Number(r.working_days ?? r.dias_laborados ?? 0) : 0,
               }
             })
             const errors: string[] = []
@@ -610,6 +616,9 @@ export default function EmployeesPage() {
               )
               const salaryOk =
                 typeof emp.base_salary === "number" && !Number.isNaN(emp.base_salary) && (emp.base_salary as number) > 0
+                emp.contract_type === "daily"
+                ? typeof emp.daily_rate === "number" && emp.daily_rate > 0 && typeof emp.working_days === "number" && emp.working_days > 0
+                : typeof emp.base_salary === "number" && emp.base_salary > 0
               const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emp.email || "")
               const statusOk = emp.status === "active" || emp.status === "inactive"
               if (!requiredOk) errors.push(`Fila ${idx + 2}: faltan campos obligatorios`)
@@ -618,7 +627,6 @@ export default function EmployeesPage() {
               if (!emailOk && emp.email) errors.push(`Fila ${idx + 2}: email inválido (${emp.email})`)
               return requiredOk && salaryOk && emailOk && statusOk
             })
-
             if (valids.length === 0 && normalized.length > 0) {
               setImportErrors([
                 ...errors.slice(0, 10),
@@ -636,14 +644,12 @@ export default function EmployeesPage() {
           }
         }}
       />
-
       <EmployeeDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         employee={selectedEmployee}
         onSave={handleSaveEmployee}
       />
-
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}

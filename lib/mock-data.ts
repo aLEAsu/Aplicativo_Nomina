@@ -1,190 +1,15 @@
-// CRUD empleados
-export async function createEmployee(employee: Omit<Employee, "id">): Promise<Employee | null> {
-  const { data, error } = await supabase.from("employees").insert([employee]).select()
-  if (error) throw error
-  return data ? data[0] as Employee : null
-}
+// lib/mock-data.ts - VERSIÓN MEJORADA Y OPTIMIZADA
 
-export async function updateEmployee(id: string, employee: Partial<Employee>): Promise<Employee | null> {
-  const { data, error } = await supabase.from("employees").update(employee).eq("id", id).select()
-  if (error) throw error
-  return data ? data[0] as Employee : null
-}
+import { supabase } from "./supabaseClient"
 
-export async function deleteEmployee(id: string): Promise<void> {
-  const { error } = await supabase.from("employees").delete().eq("id", id)
-  if (error) throw error
-}
+// ============= TIPOS Y CONSTANTES =============
 
-export async function createBulkEmployees(employees: Omit<Employee, "id">[]): Promise<Employee[]> {
-  if (!employees.length) return []
-  // Insert in a single statement; Supabase/Postgres will handle up to thousands of rows
-  const { data, error } = await supabase
-    .from("employees")
-    .insert(employees)
-    .select()
-  if (error) throw error
-  return (data ?? []) as Employee[]
-}
+export type ContractType = 'monthly' | 'daily'
+export type EmployeeStatus = 'active' | 'inactive'
 
-// CRUD Novedades
-// CRUD Novedades
-export async function createNovelty(novelty: Omit<PayrollNovelty, "id">): Promise<PayrollNovelty | null> {
-  console.log("📝 Datos a insertar:", novelty)
-  
-  const { data, error } = await supabase
-    .from("payroll_novelties")
-    .insert([novelty])
-    .select()
-    .single()
-  
-  if (error) {
-    console.error("❌ Error de Supabase:", error)
-    throw error
-  }
-  
-  console.log("✅ Novedad creada:", data)
-  return data as PayrollNovelty
-}
+export const MINIMUM_WAGE = 1_300_000 // Salario mínimo 2025
+export const MINIMUM_DAILY_RATE = 25_000 // Tarifa diaria mínima sugerida
 
-export async function updateNovelty(id: string, novelty: Partial<PayrollNovelty>): Promise<PayrollNovelty | null> {
-  console.log("✏️ Actualizando novedad:", id, novelty)
-  
-  const { data, error } = await supabase
-    .from("payroll_novelties")
-    .update(novelty)
-    .eq("id", id)
-    .select()
-    .single()
-  
-  if (error) {
-    console.error("❌ Error de Supabase:", error)
-    throw error
-  }
-  
-  console.log("✅ Novedad actualizada:", data)
-  return data as PayrollNovelty
-}
-
-export async function deleteNovelty(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("payroll_novelties")
-    .delete()
-    .eq("id", id)
-  
-  if (error) {
-    console.error("❌ Error de Supabase:", error)
-    throw error
-  }
-}
-// Al final del archivo, después de deleteNovelty
-
-// CRUD Payrolls
-export async function getPayrollsByPeriod(month: number, year: number): Promise<Payroll[]> {
-  console.log("📊 Obteniendo nóminas del período:", month, year)
-  
-  const { data, error } = await supabase
-    .from("payrolls")
-    .select("*")
-    .eq("period_month", month)
-    .eq("period_year", year)
-  
-  if (error) {
-    console.error("❌ Error al obtener nóminas:", error)
-    throw error
-  }
-  
-  console.log("✅ Nóminas obtenidas:", data)
-  return data as Payroll[]
-}
-
-export async function createPayroll(payroll: Omit<Payroll, "id" | "processed_at">): Promise<Payroll> {
-  console.log("💰 Creando nómina:", payroll)
-  
-  const { data, error } = await supabase
-    .from("payrolls")
-    .insert([{
-      employee_id: payroll.employee_id,
-      period_month: payroll.period_month,
-      period_year: payroll.period_year,
-      base_salary: payroll.base_salary,
-      bonuses: payroll.bonuses,
-      deductions: payroll.deductions,
-      overtime: payroll.overtime,
-      commissions: payroll.commissions,
-      total_earnings: payroll.total_earnings,
-      total_deductions: payroll.total_deductions,
-      net_salary: payroll.net_salary
-    }])
-    .select()
-    .single()
-  
-  if (error) {
-    console.error("❌ Error al crear nómina:", error)
-    throw error
-  }
-  
-  if (!data) {
-    throw new Error("No se recibieron datos de la base de datos")
-  }
-  
-  console.log("✅ Nómina creada:", data)
-  return data as Payroll
-}
-
-export async function createBulkPayrolls(payrolls: Omit<Payroll, "id" | "processed_at">[]): Promise<Payroll[]> {
-  console.log("💰 Creando múltiples nóminas:", payrolls.length)
-  
-  const payrollsToInsert = payrolls.map(p => ({
-    employee_id: p.employee_id,
-    period_month: p.period_month,
-    period_year: p.period_year,
-    base_salary: p.base_salary,
-    bonuses: p.bonuses,
-    deductions: p.deductions,
-    overtime: p.overtime,
-    commissions: p.commissions,
-    total_earnings: p.total_earnings,
-    total_deductions: p.total_deductions,
-    net_salary: p.net_salary
-
-  }))
-  
-  const { data, error } = await supabase
-    .from("payrolls")
-    .insert(payrollsToInsert)
-    .select()
-  
-  if (error) {
-    console.error("❌ Error al crear nóminas:", error)
-    throw error
-  }
-  
-  if (!data) {
-    throw new Error("No se recibieron datos de la base de datos")
-  }
-  
-  console.log("✅ Nóminas creadas:", data.length)
-  return data as Payroll[]
-}
-
-export async function deletePayrollsByPeriod(month: number, year: number): Promise<void> {
-  console.log("Eliminando nóminas del período", month, year);
-  const { error } = await supabase
-    .from('payrolls')
-    .delete()
-    .eq('period_month', month)
-    .eq('period_year', year);
-
-  if (error) {
-    console.error("Error al eliminar nóminas", error);
-    throw error;
-  }
-  console.log("Nóminas eliminadas");
-}
-
-
-// Integración con Supabase para datos reales
 export interface Employee {
   id: string
   identification: string
@@ -194,12 +19,12 @@ export interface Employee {
   phone: string
   position: string
   department: string
-  base_salary: number
+  contract_type: ContractType
+  base_salary: number      // Para empleados mensuales
+  daily_rate: number       // Para trabajadores por día
+  working_days: number     // Días trabajados en el período actual
   hire_date: string
-  status: "active" | "inactive"
-  contact_type: "monthly" | "daily"
-  daily_rate: number
-  working_days: number
+  status: EmployeeStatus
 }
 
 export interface PayrollNovelty {
@@ -227,49 +52,63 @@ export interface Payroll {
   processed_at: string
 }
 
-import { supabase } from "./supabaseClient"
+// ============= VALIDACIONES =============
 
-export async function getEmployees(): Promise<Employee[]> {
-  const { data, error } = await supabase.from("employees").select("*")
-  if (error) throw error
-  return data as Employee[]
+export interface ValidationResult {
+  isValid: boolean
+  errors: string[]
 }
 
-export async function getNovelties(): Promise<PayrollNovelty[]> {
-  const { data, error } = await supabase.from("payroll_novelties").select("*")
-  if (error) throw error
-  return data as PayrollNovelty[]
-}
-export async function getPayrolls(): Promise<Payroll[]> {
-  const { data, error } = await supabase.from("payrolls").select("*")
-  if (error) throw error
-  return data as Payroll[]
-}
-// lib/mock-data.ts - ACTUALIZACIÓN
+export function validateEmployee(employee: Partial<Employee>): ValidationResult {
+  const errors: string[] = []
 
-export type ContractType = 'monthly' | 'daily'
+  // Validaciones básicas
+  if (!employee.identification?.trim()) {
+    errors.push('La identificación es obligatoria')
+  }
+  if (!employee.first_name?.trim()) {
+    errors.push('El nombre es obligatorio')
+  }
+  if (!employee.last_name?.trim()) {
+    errors.push('El apellido es obligatorio')
+  }
+  if (!employee.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employee.email)) {
+    errors.push('Email inválido')
+  }
+  if (!employee.position?.trim()) {
+    errors.push('El cargo es obligatorio')
+  }
+  if (!employee.department?.trim()) {
+    errors.push('El departamento es obligatorio')
+  }
+  if (!employee.hire_date) {
+    errors.push('La fecha de contratación es obligatoria')
+  }
 
-export interface Employee {
-  id: string
-  identification: string
-  first_name: string
-  last_name: string
-  email: string
-  phone: string
-  position: string
-  department: string
-  
-  // 🆕 Campos para manejo de contratos
-  contract_type: ContractType
-  base_salary: number      // Para empleados mensuales
-  daily_rate: number       // Para trabajadores por día
-  working_days: number     // Días trabajados en el período actual
-  
-  hire_date: string
-  status: "active" | "inactive"
+  // Validaciones específicas por tipo de contrato
+  if (employee.contract_type === 'monthly') {
+    if (!employee.base_salary || employee.base_salary < MINIMUM_WAGE) {
+      errors.push(`El salario mensual debe ser mínimo $${MINIMUM_WAGE.toLocaleString('es-CO')}`)
+    }
+  } else if (employee.contract_type === 'daily') {
+    if (!employee.daily_rate || employee.daily_rate < MINIMUM_DAILY_RATE) {
+      errors.push(`El valor día debe ser mínimo $${MINIMUM_DAILY_RATE.toLocaleString('es-CO')}`)
+    }
+    if (employee.working_days !== undefined && (employee.working_days < 0 || employee.working_days > 31)) {
+      errors.push('Los días trabajados deben estar entre 0 y 31')
+    }
+  } else {
+    errors.push('Tipo de contrato inválido (debe ser "monthly" o "daily")')
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  }
 }
 
-// Helper para calcular salario efectivo
+// ============= HELPERS =============
+
 export function getEffectiveSalary(employee: Employee): number {
   if (employee.contract_type === 'daily') {
     return employee.daily_rate * employee.working_days
@@ -277,25 +116,292 @@ export function getEffectiveSalary(employee: Employee): number {
   return employee.base_salary
 }
 
-// Helper para validación
-export function validateEmployeeData(employee: Partial<Employee>): string[] {
-  const errors: string[] = []
-  
-  if (employee.contract_type === 'monthly' && (!employee.base_salary || employee.base_salary <= 0)) {
-    errors.push('El salario base es requerido para empleados mensuales')
+export function normalizeEmployeeData(rawData: any): Partial<Employee> {
+  // Normalizar tipo de contrato
+  const contractTypeRaw = String(rawData.contract_type || rawData.tipo_contrato || 'monthly').toLowerCase().trim()
+  const contract_type: ContractType = 
+    contractTypeRaw === 'daily' || contractTypeRaw === 'diario' || contractTypeRaw === 'por dia' 
+      ? 'daily' 
+      : 'monthly'
+
+  // Normalizar estado
+  const statusRaw = String(rawData.status || rawData.estado || 'active').toLowerCase().trim()
+  const status: EmployeeStatus = 
+    statusRaw === 'active' || statusRaw === 'activo' 
+      ? 'active' 
+      : 'inactive'
+
+  // Limpiar teléfono
+  const phoneRaw = String(rawData.phone || rawData.telefono || '').trim()
+  const phone = phoneRaw.replace(/[\s\-()]/g, '').substring(0, 20)
+
+  // Normalizar salarios según tipo de contrato
+  let base_salary = 0
+  let daily_rate = 0
+  let working_days = 0
+
+  if (contract_type === 'monthly') {
+    base_salary = Number(rawData.base_salary || rawData.salario_base || rawData.salario || 0)
+  } else {
+    daily_rate = Number(rawData.daily_rate || rawData.valor_dia || 0)
+    working_days = Number(rawData.working_days || rawData.dias_trabajados || 0)
   }
-  
-  if (employee.contract_type === 'daily' && (!employee.daily_rate || employee.daily_rate <= 0)) {
-    errors.push('El valor día es requerido para trabajadores por día')
+
+  return {
+    identification: String(rawData.identification || rawData.cedula || rawData.document || '').trim().substring(0, 50),
+    first_name: String(rawData.first_name || rawData.nombre || '').trim().substring(0, 100),
+    last_name: String(rawData.last_name || rawData.apellido || '').trim().substring(0, 100),
+    email: String(rawData.email || '').trim().toLowerCase().substring(0, 255),
+    phone,
+    position: String(rawData.position || rawData.cargo || '').trim().substring(0, 100),
+    department: String(rawData.department || rawData.departamento || '').trim().substring(0, 100),
+    contract_type,
+    base_salary,
+    daily_rate,
+    working_days,
+    hire_date: String(rawData.hire_date || rawData.fecha_contratacion || rawData.fecha || '').trim(),
+    status
   }
-  
-  return errors
 }
-// 🆕 Función helper para actualizar días trabajados
-export function updateWorkingDays(
-  employeeId: string, 
-  workingDays: number
-): Promise<Employee | null> {
-  // Esta función se implementaría en tu lib/mock-data.ts
-  return updateEmployee(employeeId, { working_days: workingDays })
+
+// ============= CRUD EMPLEADOS =============
+
+export async function getEmployees(): Promise<Employee[]> {
+  const { data, error } = await supabase
+    .from("employees")
+    .select("*")
+    .order('first_name', { ascending: true })
+  
+  if (error) throw error
+  return (data || []) as Employee[]
+}
+
+export async function createEmployee(employee: Omit<Employee, "id">): Promise<Employee | null> {
+  // Validar antes de insertar
+  const validation = validateEmployee(employee)
+  if (!validation.isValid) {
+    throw new Error(`Validación fallida: ${validation.errors.join(', ')}`)
+  }
+
+  const { data, error } = await supabase
+    .from("employees")
+    .insert([employee])
+    .select()
+    .single()
+  if (error) throw error
+  return data as Employee
+}
+
+export async function updateEmployee(id: string, employee: Partial<Employee>): Promise<Employee | null> {
+  // Validar antes de actualizar
+  const validation = validateEmployee(employee)
+  if (!validation.isValid) {
+    throw new Error(`Validación fallida: ${validation.errors.join(', ')}`)
+  }
+
+  const { data, error } = await supabase
+    .from("employees")
+    .update(employee)
+    .eq("id", id)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data as Employee
+}
+
+export async function deleteEmployee(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("employees")
+    .delete()
+    .eq("id", id)
+  
+  if (error) throw error
+}
+
+export async function createBulkEmployees(employees: Omit<Employee, "id">[]): Promise<{
+  success: Employee[]
+  errors: Array<{ index: number; employee: any; error: string }>
+}> {
+  if (!employees.length) return { success: [], errors: [] }
+
+  const success: Employee[] = []
+  const errors: Array<{ index: number; employee: any; error: string }> = []
+
+  // Procesar en lotes de 50 para mejor performance
+  const BATCH_SIZE = 50
+  
+  for (let i = 0; i < employees.length; i += BATCH_SIZE) {
+    const batch = employees.slice(i, i + BATCH_SIZE)
+    
+    // Validar cada empleado del lote
+    const validEmployees: Array<{ employee: Omit<Employee, "id">; originalIndex: number }> = []
+    
+    batch.forEach((emp, batchIndex) => {
+      const originalIndex = i + batchIndex
+      const validation = validateEmployee(emp)
+      
+      if (validation.isValid) {
+        validEmployees.push({ employee: emp, originalIndex })
+      } else {
+        errors.push({
+          index: originalIndex + 1,
+          employee: emp,
+          error: validation.errors.join(', ')
+        })
+      }
+    })
+
+    // Insertar empleados válidos
+    if (validEmployees.length > 0) {
+      try {
+        const { data, error } = await supabase
+          .from("employees")
+          .insert(validEmployees.map(v => v.employee))
+          .select()
+        
+        if (error) {
+          // Si falla el lote completo, intentar uno por uno
+          for (const { employee, originalIndex } of validEmployees) {
+            try {
+              const { data: singleData, error: singleError } = await supabase
+                .from("employees")
+                .insert([employee])
+                .select()
+                .single()
+              
+              if (singleError) throw singleError
+              if (singleData) success.push(singleData as Employee)
+            } catch (singleErr: any) {
+              errors.push({
+                index: originalIndex + 1,
+                employee,
+                error: singleErr.message || 'Error desconocido'
+              })
+            }
+          }
+        } else if (data) {
+          success.push(...(data as Employee[]))
+        }
+      } catch (batchErr: any) {
+        validEmployees.forEach(({ employee, originalIndex }) => {
+          errors.push({
+            index: originalIndex + 1,
+            employee,
+            error: batchErr.message || 'Error en el lote'
+          })
+        })
+      }
+    }
+  }
+
+  return { success, errors }
+}
+
+// ============= CRUD NOVEDADES =============
+
+export async function getNovelties(): Promise<PayrollNovelty[]> {
+  const { data, error } = await supabase
+    .from("payroll_novelties")
+    .select("*")
+    .order('date', { ascending: false })
+  
+  if (error) throw error
+  return (data || []) as PayrollNovelty[]
+}
+
+export async function createNovelty(novelty: Omit<PayrollNovelty, "id">): Promise<PayrollNovelty | null> {
+  const { data, error } = await supabase
+    .from("payroll_novelties")
+    .insert([novelty])
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data as PayrollNovelty
+}
+
+export async function updateNovelty(id: string, novelty: Partial<PayrollNovelty>): Promise<PayrollNovelty | null> {
+  const { data, error } = await supabase
+    .from("payroll_novelties")
+    .update(novelty)
+    .eq("id", id)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data as PayrollNovelty
+}
+
+export async function deleteNovelty(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("payroll_novelties")
+    .delete()
+    .eq("id", id)
+  
+  if (error) throw error
+}
+
+// ============= CRUD NÓMINAS =============
+
+export async function getPayrolls(): Promise<Payroll[]> {
+  const { data, error } = await supabase
+    .from("payrolls")
+    .select("*")
+    .order('processed_at', { ascending: false })
+  
+  if (error) throw error
+  return (data || []) as Payroll[]
+}
+
+export async function getPayrollsByPeriod(month: number, year: number): Promise<Payroll[]> {
+  const { data, error } = await supabase
+    .from("payrolls")
+    .select("*")
+    .eq("period_month", month)
+    .eq("period_year", year)
+    .order('employee_id', { ascending: true })
+  
+  if (error) throw error
+  return (data || []) as Payroll[]
+}
+
+export async function createPayroll(payroll: Omit<Payroll, "id" | "processed_at">): Promise<Payroll> {
+  const { data, error } = await supabase
+    .from("payrolls")
+    .insert([payroll])
+    .select()
+    .single()
+  
+  if (error) throw error
+  if (!data) throw new Error("No se recibieron datos de la base de datos")
+  
+  return data as Payroll
+}
+
+export async function createBulkPayrolls(payrolls: Partial<Payroll>[]): Promise<Payroll[]> {
+  if (!payrolls.length) return []
+
+  const sanitized = payrolls.map(({ id, processed_at, ...rest }) => rest)
+
+  const { data, error } = await supabase
+    .from("payrolls")
+    .insert(sanitized)
+    .select()
+
+  if (error) throw new Error(error.message || "Error desconocido al insertar nóminas")
+  if (!data) throw new Error("No se recibieron datos de la base de datos")
+
+  return data as Payroll[]
+}
+
+
+export async function deletePayrollsByPeriod(month: number, year: number): Promise<void> {
+  const { error } = await supabase
+    .from('payrolls')
+    .delete()
+    .eq('period_month', month)
+    .eq('period_year', year)
+
+  if (error) throw error
 }

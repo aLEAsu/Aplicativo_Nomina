@@ -1,9 +1,9 @@
 import type { Payroll, Employee, PayrollNovelty } from "./mock-data"
 
-export function generatePayrollPDF(payroll: Payroll, employee: Employee, periodNovelties?: PayrollNovelty[]) {
+export function generatePayrollPDF(payroll: Payroll, employee: Employee, periodNovelties?: PayrollNovelty[], p0?: boolean) {
   const deductionNovelties = (periodNovelties || []).filter(n => ["deduction","absence","loan"].includes(n.novelty_type))
   const earningNovelties = (periodNovelties || []).filter(n => ["bonus","overtime","commission"].includes(n.novelty_type))
-  const otherDeductionsAmount = Math.max(0, payroll.deductions - payroll.base_salary * 0.08)
+  // const otherDeductionsAmount = Math.max(0, payroll.deductions - payroll.base_salary * 0.08)
   // Crear contenido HTML para el PDF
   const htmlContent = `
     <!DOCTYPE html>
@@ -167,18 +167,29 @@ export function generatePayrollPDF(payroll: Payroll, employee: Employee, periodN
             <td>Total Devengado</td>
             <td style="text-align: right;">$${payroll.total_earnings.toLocaleString("es-CO")}</td>
           </tr>
+          <thead>
           <tr>
-            <td colspan="2" style="height: 10px; border: none;"></td>
+              <td colspan="2" style="height: 10px; border: none;"></td>
           </tr>
-          <tr>
-            <td>Salud (4%)</td>
-            <td style="text-align: right; color: #d32f2f;">-$${(payroll.base_salary * 0.04).toLocaleString("es-CO")}</td>
-          </tr>
-          <tr>
-            <td>Pensión (4%)</td>
-            <td style="text-align: right; color: #d32f2f;">-$${(payroll.base_salary * 0.04).toLocaleString("es-CO")}</td>
-          </tr>
+            <tr>
+                <th>Descuentos por salud y pension</th>
+                <th style="text-align: right;">Valor</th>
+              </tr>
+          </thead>
+          </tbody>
+            <tr>
+              <td>Salud (4%)</td>
+              <td style="text-align: right; color: #d32f2f;">-$${(payroll.base_salary * 0.04).toLocaleString("es-CO")}</td>
+            </tr>
+            <tr>
+              <td>Pensión (4%)</td>
+              <td style="text-align: right; color: #d32f2f;">-$${(payroll.base_salary * 0.04).toLocaleString("es-CO")}</td>
+            </tr>
+          <tbody>
           ${deductionNovelties.length > 0 ? `
+          <tr>
+              <td colspan="2" style="height: 10px; border: none;"></td>
+          </tr>
           <tr>
             <td colspan="2" style="background:#fafafa;font-weight:bold">Deducciones por Novedades</td>
           </tr>
@@ -187,12 +198,6 @@ export function generatePayrollPDF(payroll: Payroll, employee: Employee, periodN
             <td>${escapeHtml(n.description || n.novelty_type)}</td>
             <td style="text-align: right; color: #d32f2f;">-$${Number(n.amount || 0).toLocaleString("es-CO")}</td>
           </tr>`).join("")}
-          ` : ""}
-          ${otherDeductionsAmount > 0 ? `
-          <tr>
-            <td>Otras Deducciones</td>
-            <td style="text-align: right; color: #d32f2f;">-$${otherDeductionsAmount.toLocaleString("es-CO")}</td>
-          </tr>
           ` : ""}
           <tr class="total-row">
             <td>Total Deducciones</td>

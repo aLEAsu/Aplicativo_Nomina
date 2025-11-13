@@ -27,6 +27,7 @@ export default function PayrollPage() {
   const [novelties, setNovelties] = useState<PayrollNovelty[]>([])
   const [isCalculating, setIsCalculating] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  
 
   const months = useMemo(() => [
     { value: 1, label: "Enero" },
@@ -123,7 +124,6 @@ export default function PayrollPage() {
       `¿Estás seguro de eliminar ${calculatedPayrolls.length} nóminas de ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}?`
     )
     if (!confirmDelete) return
-
     try {
       setIsLoading(true)
       await deletePayrollsByPeriod(selectedMonth, selectedYear)
@@ -154,7 +154,7 @@ export default function PayrollPage() {
   const totalEarnings = useMemo(() => calculatedPayrolls.reduce((sum, p) => sum + p.total_earnings, 0), [calculatedPayrolls])
   const totalDeductions = useMemo(() => calculatedPayrolls.reduce((sum, p) => sum + p.total_deductions, 0), [calculatedPayrolls])
   const totalPayroll = useMemo(() => calculatedPayrolls.reduce((sum, p) => sum + p.net_salary, 0), [calculatedPayrolls])
-
+  
   if (isLoading && !employees.length) {
     return (
       <div className="p-8 flex items-center justify-center">
@@ -169,14 +169,14 @@ export default function PayrollPage() {
   return (
     <div className="p-8 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Cálculo de Nómina</h1>
+        <h1 className="text-3xl font-bold">Cálculo de Nómina Mensual FUPADESO</h1>
         <p className="text-muted-foreground mt-1">Procesa la nómina mensual y genera comprobantes</p>
       </div>
-
-      <a href="/dashboard">
-        <Button variant="secondary">Volver al Dashboard</Button>
-      </a>
-
+      <div className="pb-2">
+        <a href="/dashboard">
+          <Button variant="secondary">Volver al Dashboard</Button>
+        </a>
+      </div>   
       <Card>
         <CardHeader>
           <CardTitle>Seleccionar Período</CardTitle>
@@ -196,7 +196,7 @@ export default function PayrollPage() {
                 </SelectContent>
               </Select>
             </div>
-
+            
             <div>
               <label className="text-sm font-medium">Año</label>
               <Select value={selectedYear.toString()} onValueChange={v => setSelectedYear(Number(v))}>
@@ -210,7 +210,7 @@ export default function PayrollPage() {
                 </SelectContent>
               </Select>
             </div>
-
+            
             <Button onClick={handleCalculatePayroll} disabled={isCalculating} className="mt-6">
               <Calculator className="mr-2 h-4 w-4" />
               {isCalculating ? "Calculando..." : "Calcular Nómina"}
@@ -218,7 +218,7 @@ export default function PayrollPage() {
           </div>
         </CardContent>
       </Card>
-
+      
       {calculatedPayrolls.length > 0 && (
         <>
           <div className="grid gap-6 md:grid-cols-3">
@@ -226,7 +226,7 @@ export default function PayrollPage() {
             <SummaryCard title="Total Deducciones" value={totalDeductions} color="text-red-600" />
             <SummaryCard title="Neto a Pagar" value={totalPayroll} />
           </div>
-
+          
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">

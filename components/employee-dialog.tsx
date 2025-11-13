@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -13,7 +13,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { Employee, ContractType } from "@/lib/mock-data"
+import type { Employee } from "@/lib/mock-data"
+import { createEmployee, updateEmployee, validateEmployee, MINIMUM_WAGE, MINIMUM_DAILY_RATE } from "@/lib/mock-data"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle, Info } from "lucide-react"
 
 interface EmployeeDialogProps {
   open: boolean
@@ -24,272 +27,339 @@ interface EmployeeDialogProps {
 
 export function EmployeeDialog({ open, onOpenChange, employee, onSave }: EmployeeDialogProps) {
   const [formData, setFormData] = useState<Partial<Employee>>({
-    identification: "",
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    position: "",
-    department: "",
-    contract_type: "monthly",
+    contract_type: 'monthly',
     base_salary: 0,
     daily_rate: 0,
     working_days: 0,
-    hire_date: "",
-    status: "active",
+    status: 'active'
   })
+  const [errors, setErrors] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (employee) {
-      setFormData(employee)
+      setFormData({
+        ...employee,
+        contract_type: employee.contract_type || 'monthly',
+        base_salary: employee.base_salary || 0,
+        daily_rate: employee.daily_rate || 0,
+        working_days: employee.working_days || 0
+      })
     } else {
       setFormData({
-        identification: "",
-        first_name: "",
-        last_name: "",
-        email: "",
-        phone: "",
-        position: "",
-        department: "",
-        contract_type: "monthly",
-        base_salary: 0,
+        contract_type: 'monthly',
+        base_salary: MINIMUM_WAGE,
         daily_rate: 0,
         working_days: 0,
-        hire_date: "",
-        status: "active",
+        status: 'active',
+        identification: '',
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        position: '',
+        department: '',
+        hire_date: new Date().toISOString().split('T')[0]
       })
     }
+    setErrors([])
   }, [employee, open])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validación
-    const errors: string[] = []
-    
-    if (formData.contract_type === 'monthly' && (!formData.base_salary || formData.base_salary <= 0)) {
-      errors.push('El salario base es requerido para empleados mensuales')
+    setErrors([])
+    setIsSubmitting(true)
+
+    try {
+      // Validar datos
+      const validation = validateEmployee(formData)
+      if (!validation.isValid) {
+        setErrors(validation.errors)
+        setIsSubmitting(false)
+        return
+      }
+
+      // Preparar datos según tipo de contrato
+      const employeeData = {
+        ...formData,
+        base_salary: formData.contract_type === 'monthly' ? Number(formData.base_salary) : 0,
+        daily_rate: formData.contract_type === 'daily' ? Number(formData.daily_rate) : 0,
+        working_days: formData.contract_type === 'daily' ? Number(formData.working_days) : 0
+      } as Employee
+
+      // Crear o actualizar
+      let savedEmployee: Employee | null
+      if (employee?.id) {
+        savedEmployee = await updateEmployee(employee.id, employeeData)
+      } else {
+        savedEmployee = await createEmployee(employeeData as Omit<Employee, "id">)
+      }
+
+      if (savedEmployee) {
+        onSave(savedEmployee)
+        onOpenChange(false)
+      }
+    } catch (error: any) {
+      console.error('Error al guardar empleado:', error)
+      setErrors([error.message || 'Error al guardar el empleado'])
+    } finally {
+      setIsSubmitting(false)
     }
-    
-    if (formData.contract_type === 'daily' && (!formData.daily_rate || formData.daily_rate <= 0)) {
-      errors.push('El valor día es requerido para trabajadores por día')
-    }
-    
-    if (errors.length > 0) {
-      alert(errors.join('\n'))
-      return
-    }
-    
-    onSave(formData as Employee)
   }
 
-  const handleChange = (field: keyof Employee, value: string | number) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+  const handleChange = (field: keyof Employee, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    setErrors([]) // Limpiar errores al cambiar campos
   }
 
-  const isMonthly = formData.contract_type === 'monthly'
-  const isDaily = formData.contract_type === 'daily'
+  const estimatedMonthlySalary = formData.contract_type === 'daily' 
+    ? (formData.daily_rate || 0) * (formData.working_days || 0)
+    : 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{employee ? "Editar Empleado" : "Nuevo Empleado"}</DialogTitle>
           <DialogDescription>
-            {employee
-              ? "Actualiza la información del empleado"
-              : "Completa el formulario para agregar un nuevo empleado"}
+            {employee ? "Modifica la información del empleado" : "Completa los datos del nuevo empleado"}
           </DialogDescription>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            {/* Información Básica */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="identification">Identificación *</Label>
-                <Input
-                  id="identification"
-                  value={formData.identification}
-                  onChange={(e) => handleChange("identification", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Estado *</Label>
-                <Select value={formData.status} onValueChange={(value) => handleChange("status", value)}>
-                  <SelectTrigger id="status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Activo</SelectItem>
-                    <SelectItem value="inactive">Inactivo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first_name">Nombre *</Label>
-                <Input
-                  id="first_name"
-                  value={formData.first_name}
-                  onChange={(e) => handleChange("first_name", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="last_name">Apellido *</Label>
-                <Input
-                  id="last_name"
-                  value={formData.last_name}
-                  onChange={(e) => handleChange("last_name", e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {errors.length > 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <ul className="list-disc list-inside space-y-1">
+                  {errors.map((error, i) => (
+                    <li key={i} className="text-sm">{error}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
 
-            {/* Contacto */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Correo Electrónico</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Teléfono</Label>
-                <Input id="phone" value={formData.phone} onChange={(e) => handleChange("phone", e.target.value)} />
-              </div>
-            </div>
+          {/* Tipo de Contrato */}
+          <div className="space-y-2">
+            <Label htmlFor="contract_type">Tipo de Contrato *</Label>
+            <Select
+              value={formData.contract_type}
+              onValueChange={(value) => handleChange('contract_type', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona tipo de contrato" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">💼 Empleado Mensual</SelectItem>
+                <SelectItem value="daily">📅 Trabajador por Día</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {formData.contract_type === 'monthly' 
+                ? 'Empleado con salario fijo mensual'
+                : 'Trabajador que cobra por día laborado'}
+            </p>
+          </div>
 
-            {/* Cargo y Departamento */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="position">Cargo *</Label>
-                <Input
-                  id="position"
-                  value={formData.position}
-                  onChange={(e) => handleChange("position", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="department">Departamento</Label>
-                <Input
-                  id="department"
-                  value={formData.department}
-                  onChange={(e) => handleChange("department", e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* 🆕 SECCIÓN DE TIPO DE CONTRATO */}
-            <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="contract_type" className="text-base font-semibold">
-                  Tipo de Contrato *
-                </Label>
-                <Select 
-                  value={formData.contract_type} 
-                  onValueChange={(value: ContractType) => handleChange("contract_type", value)}
-                >
-                  <SelectTrigger id="contract_type" className="bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">💼 Salario Mensual Fijo</SelectItem>
-                    <SelectItem value="daily">📅 Pago por Día Trabajado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Campos Condicionales según el tipo de contrato */}
-              {isMonthly && (
-                <div className="space-y-2 animate-in fade-in-50 duration-200">
-                  <Label htmlFor="base_salary" className="flex items-center gap-2">
-                    Salario Base Mensual *
-                    <span className="text-xs text-muted-foreground">(fijo cada mes)</span>
-                  </Label>
-                  <Input
-                    id="base_salary"
-                    type="number"
-                    value={formData.base_salary || ''}
-                    onChange={(e) => handleChange("base_salary", Number.parseFloat(e.target.value) || 0)}
-                    className="bg-background"
-                    required
-                    placeholder="Ej: 1500000"
-                  />
-                </div>
-              )}
-
-              {isDaily && (
-                <div className="space-y-4 animate-in fade-in-50 duration-200">
-                  <div className="space-y-2">
-                    <Label htmlFor="daily_rate" className="flex items-center gap-2">
-                      Valor Día *
-                      <span className="text-xs text-muted-foreground">(pago por cada día trabajado)</span>
-                    </Label>
-                    <Input
-                      id="daily_rate"
-                      type="number"
-                      value={formData.daily_rate || ''}
-                      onChange={(e) => handleChange("daily_rate", Number.parseFloat(e.target.value) || 0)}
-                      className="bg-background"
-                      required
-                      placeholder="Ej: 50000"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="working_days" className="flex items-center gap-2">
-                      Días Trabajados (Mes Actual)
-                      <span className="text-xs text-muted-foreground">(opcional, se puede actualizar después)</span>
-                    </Label>
-                    <Input
-                      id="working_days"
-                      type="number"
-                      min="0"
-                      max="31"
-                      value={formData.working_days || 0}
-                      onChange={(e) => handleChange("working_days", Number.parseInt(e.target.value) || 0)}
-                      className="bg-background"
-                      placeholder="Ej: 20"
-                    />
-                    {(formData.daily_rate ?? 0) > 0 && (formData.working_days ?? 0) > 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          💰 Pago estimado: <strong className="text-foreground">
-                            ${((formData.daily_rate ?? 0) * (formData.working_days ?? 0)).toLocaleString('es-CO')}
-                          </strong>
-                        </p>
-                      )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Fecha de Contratación */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="hire_date">Fecha de Contratación *</Label>
+              <Label htmlFor="identification">Identificación *</Label>
               <Input
-                id="hire_date"
-                type="date"
-                value={formData.hire_date}
-                onChange={(e) => handleChange("hire_date", e.target.value)}
+                id="identification"
+                value={formData.identification || ''}
+                onChange={(e) => handleChange('identification', e.target.value)}
+                placeholder="1234567890"
+                maxLength={50}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">Estado *</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => handleChange('status', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Activo</SelectItem>
+                  <SelectItem value="inactive">Inactivo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="first_name">Nombres *</Label>
+              <Input
+                id="first_name"
+                value={formData.first_name || ''}
+                onChange={(e) => handleChange('first_name', e.target.value)}
+                placeholder="Nombres completos"
+                maxLength={100}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="last_name">Apellidos *</Label>
+              <Input
+                id="last_name"
+                value={formData.last_name || ''}
+                onChange={(e) => handleChange('last_name', e.target.value)}
+                placeholder="Apellidos completos"
+                maxLength={100}
                 required
               />
             </div>
           </div>
-          
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Correo Electrónico *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => handleChange('email', e.target.value)}
+                placeholder="Digite el correo electrónico"
+                maxLength={255}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Teléfono</Label>
+              <Input
+                id="phone"
+                value={formData.phone || ''}
+                onChange={(e) => handleChange('phone', e.target.value)}
+                placeholder="Nro de teléfono"
+                maxLength={20}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="position">Cargo *</Label>
+              <Input
+                id="position"
+                value={formData.position || ''}
+                onChange={(e) => handleChange('position', e.target.value)}
+                placeholder="Cargo "
+                maxLength={100}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="department">Departamento *</Label>
+              <Input
+                id="department"
+                value={formData.department || ''}
+                onChange={(e) => handleChange('department', e.target.value)}
+                placeholder="Administración"
+                maxLength={100}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Campos condicionales según tipo de contrato */}
+          {formData.contract_type === 'monthly' ? (
+            <div className="space-y-2">
+              <Label htmlFor="base_salary">Salario Base Mensual *</Label>
+              <Input
+                id="base_salary"
+                type="number"
+                min={MINIMUM_WAGE}
+                step="1000"
+                value={formData.base_salary || ''}
+                onChange={(e) => handleChange('base_salary', Number(e.target.value))}
+                placeholder={MINIMUM_WAGE.toString()}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Salario mínimo: ${MINIMUM_WAGE.toLocaleString('es-CO')}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="daily_rate">Valor por Día *</Label>
+                  <Input
+                    id="daily_rate"
+                    type="number"
+                    min={MINIMUM_DAILY_RATE}
+                    step="1000"
+                    value={formData.daily_rate || ''}
+                    onChange={(e) => handleChange('daily_rate', Number(e.target.value))}
+                    placeholder={Math.round(MINIMUM_DAILY_RATE).toString()}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Mínimo: ${Math.round(MINIMUM_DAILY_RATE).toLocaleString('es-CO')}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="working_days">Días Trabajados</Label>
+                  <Input
+                    id="working_days"
+                    type="number"
+                    min="0"
+                    max="31"
+                    value={formData.working_days || ''}
+                    onChange={(e) => handleChange('working_days', Number(e.target.value))}
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Días en el período actual
+                  </p>
+                </div>
+              </div>
+
+              {estimatedMonthlySalary > 0 && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    <span className="font-semibold">Salario estimado del período:</span>
+                    <div className="text-lg font-bold text-primary mt-1">
+                      ${estimatedMonthlySalary.toLocaleString('es-CO')}
+                    </div>
+                    <p className="text-xs mt-1">
+                      ({formData.working_days} días × ${(formData.daily_rate || 0).toLocaleString('es-CO')})
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="hire_date">Fecha de Contratación *</Label>
+            <Input
+              id="hire_date"
+              type="date"
+              value={formData.hire_date || ''}
+              onChange={(e) => handleChange('hire_date', e.target.value)}
+              required
+            />
+          </div>
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancelar
             </Button>
-            <Button type="submit">{employee ? "Actualizar" : "Crear"} Empleado</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Guardando...' : (employee ? 'Actualizar' : 'Crear')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
