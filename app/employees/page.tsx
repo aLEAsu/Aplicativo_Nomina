@@ -257,7 +257,7 @@ export default function EmployeesPage() {
                   <TableHead className="font-semibold text-foreground/80">Identificación</TableHead>
                   <TableHead className="font-semibold text-foreground/80">Nombre Completo</TableHead>
                   <TableHead className="font-semibold text-foreground/80">Cargo</TableHead>
-                  <TableHead className="font-semibold text-foreground/80">Departamento</TableHead>
+                  <TableHead className="font-semibold text-foreground/80">Municipio</TableHead>
                   <TableHead className="font-semibold text-foreground/80">Salario Base</TableHead>
                   <TableHead className="font-semibold text-foreground/80">Estado</TableHead>
                   <TableHead className="font-semibold text-foreground/80">Tipo Contrato</TableHead>

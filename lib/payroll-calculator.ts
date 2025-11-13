@@ -41,11 +41,11 @@ export function calculatePayroll(
     .reduce((sum, n) => sum + n.amount, 0)
 
   // 🆕 Calcular contribuciones basadas en el salario efectivo
-  const healthContribution = effectiveBaseSalary * 0.04
-  const pensionContribution = effectiveBaseSalary * 0.04
+  //const healthContribution = effectiveBaseSalary * 0.04
+  //const pensionContribution = effectiveBaseSalary * 0.04
 
   const total_earnings = effectiveBaseSalary + bonuses + overtime + commissions
-  const total_deductions = otherDeductions + healthContribution + pensionContribution
+  const total_deductions = otherDeductions //+ healthContribution + pensionContribution
   const net_salary = total_earnings - total_deductions
 
   return {

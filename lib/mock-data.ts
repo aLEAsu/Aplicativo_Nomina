@@ -355,6 +355,8 @@ export async function getPayrolls(): Promise<Payroll[]> {
 }
 
 export async function getPayrollsByPeriod(month: number, year: number): Promise<Payroll[]> {
+  console.log(`🔍 Buscando nóminas para período: ${month}/${year}`)
+  
   const { data, error } = await supabase
     .from("payrolls")
     .select("*")
@@ -362,7 +364,12 @@ export async function getPayrollsByPeriod(month: number, year: number): Promise<
     .eq("period_year", year)
     .order('employee_id', { ascending: true })
   
-  if (error) throw error
+  if (error) {
+    console.error(`❌ Error al obtener nóminas de ${month}/${year}:`, error)
+    throw error
+  }
+  
+  console.log(`✅ Se encontraron ${data?.length || 0} nóminas para ${month}/${year}`)
   return (data || []) as Payroll[]
 }
 

@@ -70,15 +70,16 @@ export default function NoveltiesPage() {
   }, [])
 
   const employeeMap = useMemo(() => {
-    const map = new Map<number, Employee>()
-    for (const e of employees) map.set(e.id, e)
-    return map
+  const map = new Map<string, Employee>()
+  for (const e of employees) map.set(String(e.id), e)
+  return map
   }, [employees])
+
 
   const filteredNovelties = useMemo(() => {
     const term = deferredSearchTerm.toLowerCase()
     return (novelties ?? []).filter((novelty) => {
-      const employee = employeeMap.get(novelty.employee_id)
+      const employee = employeeMap.get(String(novelty.employee_id))
       const matchesSearch =
         employee?.first_name?.toLowerCase().includes(term) ||
         employee?.last_name?.toLowerCase().includes(term) ||

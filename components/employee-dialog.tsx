@@ -250,7 +250,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSave }: Employe
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="department">Departamento *</Label>
+              <Label htmlFor="department">Municipio *</Label>
               <Input
                 id="department"
                 value={formData.department || ''}
