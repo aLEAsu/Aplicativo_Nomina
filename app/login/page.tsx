@@ -49,8 +49,8 @@ export default function LoginPage() {
         <Card className="w-full max-w-md border-border/60 shadow-sm">
           <CardHeader className="space-y-1 text-center">
             <div className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-md bg-primary text-primary-foreground">A</div>
-            <CardTitle className="text-2xl font-semibold tracking-tight">Acceso Administrador</CardTitle>
-            <CardDescription>Ingresa tus credenciales para continuar</CardDescription>
+            <CardTitle className="text-2xl font-semibold tracking-tight">Ingreso al Sistema de Nomina</CardTitle>
+            <CardDescription>Fundacion para el Desarrollo Social</CardDescription>
           </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -60,7 +60,7 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="usuario@empresa.com"
+                placeholder=""
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
@@ -94,7 +94,10 @@ export default function LoginPage() {
           </form>
           <div className="mt-6 rounded-md bg-muted p-3 text-xs text-muted-foreground">Solo para uso del administrador</div>
         </CardContent>
-        </Card>
+        </Card> 
+      </div>
+      <div className="footer py-4 text-center text-sm text-muted-foreground">
+          <p> © 2025 FUPADESO, Todos los derechos reservados.</p>
       </div>
     </div>
   )
