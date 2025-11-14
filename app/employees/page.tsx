@@ -108,7 +108,8 @@ export default function EmployeesPage() {
         emp.first_name.toLowerCase().includes(term) ||
         emp.last_name.toLowerCase().includes(term) ||
         emp.identification.includes(term) ||
-        emp.email.toLowerCase().includes(term),
+        emp.email.toLowerCase().includes(term) ||
+        emp.department.toLowerCase().includes(term),
     )
   }, [employees, deferredSearchTerm])
 
@@ -213,7 +214,7 @@ export default function EmployeesPage() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre, ID o correo..."
+              placeholder="Buscar por cedula, nombre o municipio.."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 py-2 bg-input border-border/50 focus:border-primary/50 shadow-sm"
