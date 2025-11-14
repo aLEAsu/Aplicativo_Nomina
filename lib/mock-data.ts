@@ -412,3 +412,51 @@ export async function deletePayrollsByPeriod(month: number, year: number): Promi
 
   if (error) throw error
 }
+// ============================================
+// NUEVA SECCIÓN: Agregar al final de lib/mock-data.ts
+// ============================================
+
+// ============= UTILIDADES ADICIONALES =============
+
+/**
+ * Obtiene la lista única de municipios (departments) de los empleados activos
+ */
+export async function getUniqueMunicipalities(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("employees")
+    .select("department")
+    .eq("status", "active")
+    .order("department", { ascending: true })
+  
+  if (error) throw error
+  
+  // Extraer valores únicos y filtrar vacíos
+  const uniqueDepartments = [...new Set(
+    (data || [])
+      .map(item => item.department)
+      .filter(dept => dept && dept.trim())
+  )].sort()
+  
+  return uniqueDepartments
+}
+
+/**
+ * Obtiene empleados activos filtrados opcionalmente por municipio
+ */
+export async function getActiveEmployees(municipality?: string): Promise<Employee[]> {
+  let query = supabase
+    .from("employees")
+    .select("*")
+    .eq("status", "active")
+    .order("first_name", { ascending: true })
+  
+  // Aplicar filtro de municipio si se proporciona
+  if (municipality && municipality !== "all") {
+    query = query.eq("department", municipality)
+  }
+  
+  const { data, error } = await query
+  
+  if (error) throw error
+  return (data || []) as Employee[]
+}

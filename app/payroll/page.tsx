@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calculator, Download, FileText, Bug } from "lucide-react"
+import { Calculator, Download, FileText, MapPin } from "lucide-react"
 import {
   getEmployees,
   getNovelties,
   getPayrollsByPeriod,
   createBulkPayrolls,
   deletePayrollsByPeriod,
+  getUniqueMunicipalities,
+  getActiveEmployees,
   type Payroll,
   type Employee,
   type PayrollNovelty
@@ -22,6 +24,8 @@ import { generatePayrollPDF } from "@/lib/pdf-generator"
 export default function PayrollPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [selectedMunicipality, setSelectedMunicipality] = useState<string>("all")
+  const [municipalities, setMunicipalities] = useState<string[]>([])
   const [calculatedPayrolls, setCalculatedPayrolls] = useState<Payroll[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [novelties, setNovelties] = useState<PayrollNovelty[]>([])
@@ -53,12 +57,18 @@ export default function PayrollPage() {
     const loadInitialData = async () => {
       setIsLoading(true)
       try {
-        const [empsData, novsData] = await Promise.all([getEmployees(), getNovelties()])
+        const [empsData, novsData, municsData] = await Promise.all([
+          getEmployees(), 
+          getNovelties(),
+          getUniqueMunicipalities()
+        ])
         setEmployees(empsData)
         setNovelties(novsData)
+        setMunicipalities(municsData)
         console.log('📋 Datos iniciales cargados:', {
           empleados: empsData.length,
-          novedades: novsData.length
+          novedades: novsData.length,
+          municipios: municsData.length
         })
       } catch (error) {
         console.error("Error al cargar datos iniciales:", error)
@@ -79,14 +89,7 @@ export default function PayrollPage() {
       console.log(`✅ Nóminas cargadas:`, {
         mes: selectedMonth,
         año: selectedYear,
-        total: payrolls.length,
-        registros: payrolls.map(p => ({
-          id: p.id.substring(0, 8),
-          employee_id: p.employee_id.substring(0, 8),
-          mes: p.period_month,
-          año: p.period_year,
-          neto: p.net_salary
-        }))
+        total: payrolls.length
       })
       setCalculatedPayrolls(payrolls)
     } catch (error) {
@@ -101,21 +104,49 @@ export default function PayrollPage() {
     loadPayrolls()
   }, [loadPayrolls])
 
+  // Filtrar nóminas mostradas según municipio seleccionado
+  const displayedPayrolls = useMemo(() => {
+    if (selectedMunicipality === "all") {
+      return calculatedPayrolls
+    }
+    
+    return calculatedPayrolls.filter(payroll => {
+      const employee = employees.find(e => e.id === payroll.employee_id)
+      return employee?.department === selectedMunicipality
+    })
+  }, [calculatedPayrolls, selectedMunicipality, employees])
+
   const handleCalculatePayroll = async () => {
     try {
       setIsCalculating(true)
       console.log(`\n📊 === INICIANDO CÁLCULO DE NÓMINA ===`)
-      console.log(`📅 Período seleccionado: ${selectedMonth}/${selectedYear}`)
+      console.log(`📅 Período: ${selectedMonth}/${selectedYear}`)
+      console.log(`📍 Municipio: ${selectedMunicipality === "all" ? "TODOS" : selectedMunicipality}`)
 
-      // Verificar si ya existe nómina para este período
+      // Obtener empleados activos según filtro de municipio
+      const activeEmployees = await getActiveEmployees(
+        selectedMunicipality === "all" ? undefined : selectedMunicipality
+      )
+      
+      console.log(`👥 Empleados a procesar: ${activeEmployees.length}`)
+      
+      if (!activeEmployees.length) {
+        alert(selectedMunicipality === "all" 
+          ? "No hay empleados activos para procesar"
+          : `No hay empleados activos en el municipio "${selectedMunicipality}"`)
+        setIsCalculating(false)
+        return
+      }
+
+      // Verificar nóminas existentes
       const existingPayrolls = await getPayrollsByPeriod(selectedMonth, selectedYear)
-      console.log(`🔍 Nóminas existentes: ${existingPayrolls.length}`)
       
       if (existingPayrolls.length > 0) {
-        console.log(`⚠️ Ya hay ${existingPayrolls.length} nóminas para ${selectedMonth}/${selectedYear}`)
-        const confirmReplace = window.confirm(
-          `Ya existen ${existingPayrolls.length} nóminas para ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}.\n\n¿Deseas ELIMINARLAS y crear nuevas?\n\n⚠️ Esta acción no se puede deshacer.`
-        )
+        const confirmMessage = selectedMunicipality === "all"
+          ? `Ya existen ${existingPayrolls.length} nóminas para ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}.\n\n¿Deseas ELIMINARLAS TODAS y crear nuevas?\n\n⚠️ Esta acción eliminará TODAS las nóminas del período, no solo las del municipio seleccionado.`
+          : `Ya existen ${existingPayrolls.length} nóminas para ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}.\n\nAl calcular solo "${selectedMunicipality}", se ELIMINARÁN TODAS las nóminas del período (incluyendo otros municipios).\n\n¿Deseas continuar?\n\n⚠️ Se recomienda calcular todos los municipios juntos.`
+        
+        const confirmReplace = window.confirm(confirmMessage)
         if (!confirmReplace) {
           console.log('❌ Operación cancelada por el usuario')
           setIsCalculating(false)
@@ -127,19 +158,10 @@ export default function PayrollPage() {
         console.log('✅ Nóminas anteriores eliminadas')
       }
 
-      const activeEmployees = employees.filter(e => e.status === "active")
-      console.log(`👥 Empleados activos: ${activeEmployees.length}`)
-      
-      if (!activeEmployees.length) {
-        alert("No hay empleados activos para procesar")
-        setIsCalculating(false)
-        return
-      }
-
       console.log(`\n💰 === CALCULANDO NÓMINAS ===`)
       const newPayrolls = activeEmployees.map((e, index) => {
         const payroll = calculatePayroll(e, novelties, selectedMonth, selectedYear)
-        console.log(`  ${index + 1}. ${e.first_name} ${e.last_name}:`, {
+        console.log(`  ${index + 1}. ${e.first_name} ${e.last_name} (${e.department}):`, {
           mes: payroll.period_month,
           año: payroll.period_year,
           base: payroll.base_salary,
@@ -152,32 +174,26 @@ export default function PayrollPage() {
       const savedPayrolls = await createBulkPayrolls(newPayrolls)
       console.log(`✅ ${savedPayrolls.length} nóminas guardadas`)
 
-      // CRÍTICO: Recargar SOLO las nóminas del período actual
+      // Recargar todas las nóminas del período
       console.log(`\n🔄 === RECARGANDO DATOS DEL PERÍODO ${selectedMonth}/${selectedYear} ===`)
       const freshPayrolls = await getPayrollsByPeriod(selectedMonth, selectedYear)
-      console.log(`📊 Nóminas recargadas:`, {
-        cantidad: freshPayrolls.length,
-        total: freshPayrolls.reduce((sum, p) => sum + p.net_salary, 0),
-        registros: freshPayrolls.map(p => ({
-          id: p.id.substring(0, 8),
-          employee: p.employee_id.substring(0, 8),
-          mes: p.period_month,
-          año: p.period_year,
-          neto: p.net_salary
-        }))
-      })
+      console.log(`📊 Nóminas recargadas: ${freshPayrolls.length}`)
 
-      // Actualizar el estado con los datos frescos
       setCalculatedPayrolls(freshPayrolls)
       
       console.log(`\n✅ === PROCESO COMPLETADO ===\n`)
       
-      const totalAmount = freshPayrolls.reduce((sum, p) => sum + p.net_salary, 0)
+      const totalAmount = newPayrolls.reduce((sum, p) => sum + p.net_salary, 0)
+      const municipalityInfo = selectedMunicipality === "all" 
+        ? "" 
+        : `\n📍 Municipio: ${selectedMunicipality}`
+      
       alert(
         `✅ Nómina procesada exitosamente\n\n` +
-        `📅 Período: ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}\n` +
-        `👥 Empleados: ${freshPayrolls.length}\n` +
-        `💰 Total: $${totalAmount.toLocaleString('es-CO')}`
+        `📅 Período: ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}` +
+        municipalityInfo +
+        `\n👥 Empleados procesados: ${newPayrolls.length}` +
+        `\n💰 Total: $${totalAmount.toLocaleString('es-CO')}`
       )
     } catch (error: any) {
       console.error("\n❌ === ERROR EN EL PROCESO ===")
@@ -188,40 +204,6 @@ export default function PayrollPage() {
     }
   }
 
-  const handleDebug = async () => {
-    console.log('\n🔍 === DEBUG: ESTADO ACTUAL ===')
-    console.log('Período seleccionado:', { mes: selectedMonth, año: selectedYear })
-    console.log('Nóminas en estado React:', calculatedPayrolls.length)
-    console.log('Detalle de nóminas en estado:', calculatedPayrolls.map(p => ({
-      id: p.id.substring(0, 8),
-      employee_id: p.employee_id.substring(0, 8),
-      mes: p.period_month,
-      año: p.period_year,
-      neto: p.net_salary
-    })))
-    
-    const freshData = await getPayrollsByPeriod(selectedMonth, selectedYear)
-    console.log('\nNóminas en Base de Datos:', freshData.length)
-    console.log('Detalle de nóminas en BD:', freshData.map(p => ({
-      id: p.id.substring(0, 8),
-      employee_id: p.employee_id.substring(0, 8),
-      mes: p.period_month,
-      año: p.period_year,
-      neto: p.net_salary
-    })))
-    
-    console.log('\n¿Coinciden?', calculatedPayrolls.length === freshData.length)
-    
-    alert(
-      `🐛 Debug Info:\n\n` +
-      `📅 Período: ${selectedMonth}/${selectedYear}\n` +
-      `📊 En React State: ${calculatedPayrolls.length} nóminas\n` +
-      `💾 En Base de Datos: ${freshData.length} nóminas\n\n` +
-      `${calculatedPayrolls.length === freshData.length ? '✅ Coinciden' : '❌ NO COINCIDEN'}\n\n` +
-      `Revisa la consola (F12) para más detalles`
-    )
-  }
-
   const handleDownloadPDF = (payroll: Payroll) => {
     const employee = employees.find(e => e.id === payroll.employee_id)
     const periodNovelties = novelties.filter(n => n.employee_id === payroll.employee_id && n.date)
@@ -229,16 +211,27 @@ export default function PayrollPage() {
   }
 
   const handleDownloadAllPDFs = () => {
-    calculatedPayrolls.forEach((payroll, index) => {
+    displayedPayrolls.forEach((payroll, index) => {
       const employee = employees.find(e => e.id === payroll.employee_id)
       const periodNovelties = novelties.filter(n => n.employee_id === payroll.employee_id && n.date)
       if (employee) setTimeout(() => generatePayrollPDF(payroll, employee, periodNovelties), index * 400)
     })
   }
 
-  const totalEarnings = useMemo(() => calculatedPayrolls.reduce((sum, p) => sum + p.total_earnings, 0), [calculatedPayrolls])
-  const totalDeductions = useMemo(() => calculatedPayrolls.reduce((sum, p) => sum + p.total_deductions, 0), [calculatedPayrolls])
-  const totalPayroll = useMemo(() => calculatedPayrolls.reduce((sum, p) => sum + p.net_salary, 0), [calculatedPayrolls])
+  const totalEarnings = useMemo(() => 
+    displayedPayrolls.reduce((sum, p) => sum + p.total_earnings, 0), 
+    [displayedPayrolls]
+  )
+  
+  const totalDeductions = useMemo(() => 
+    displayedPayrolls.reduce((sum, p) => sum + p.total_deductions, 0), 
+    [displayedPayrolls]
+  )
+  
+  const totalPayroll = useMemo(() => 
+    displayedPayrolls.reduce((sum, p) => sum + p.net_salary, 0), 
+    [displayedPayrolls]
+  )
 
   if (isLoading && !employees.length) {
     return (
@@ -265,10 +258,10 @@ export default function PayrollPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Seleccionar Período</CardTitle>
+          <CardTitle>Seleccionar Período y Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-3 gap-3">
+          <div className="grid md:grid-cols-4 gap-3">
             <div>
               <label className="text-sm font-medium">Mes</label>
               <Select value={selectedMonth.toString()} onValueChange={v => setSelectedMonth(Number(v))}>
@@ -297,31 +290,83 @@ export default function PayrollPage() {
               </Select>
             </div>
 
-            <Button onClick={handleCalculatePayroll} disabled={isCalculating} className="mt-6 ml-4">
+            <div>
+              <label className="text-sm font-medium flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                Municipio (opcional)
+              </label>
+              <Select value={selectedMunicipality} onValueChange={setSelectedMunicipality}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <span className="font-semibold">Todos los municipios</span>
+                  </SelectItem>
+                  {municipalities.map(mun => (
+                    <SelectItem key={mun} value={mun}>
+                      {mun}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button onClick={handleCalculatePayroll} disabled={isCalculating} className="mt-6">
               <Calculator className="mr-2 h-4 w-4" />
               {isCalculating ? "Calculando..." : "Calcular Nómina"}
             </Button>
           </div>
+          
+          {selectedMunicipality !== "all" && (
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                <span>
+                  Filtrando por municipio: <strong>{selectedMunicipality}</strong>
+                </span>
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                ⚠️ Al calcular, se procesarán solo los empleados de este municipio
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {calculatedPayrolls.length > 0 && (
         <>
           <div className="grid gap-6 md:grid-cols-3">
-            <SummaryCard title="Total Devengado" value={totalEarnings} color="text-green-600" />
-            <SummaryCard title="Total Deducciones" value={totalDeductions} color="text-red-600" />
-            <SummaryCard title="Neto a Pagar" value={totalPayroll} />
+            <SummaryCard 
+              title="Total Devengado" 
+              value={totalEarnings} 
+              color="text-green-600" 
+              subtitle={displayedPayrolls.length < calculatedPayrolls.length ? `(${displayedPayrolls.length} empleados filtrados)` : undefined}
+            />
+            <SummaryCard 
+              title="Total Deducciones" 
+              value={totalDeductions} 
+              color="text-red-600" 
+            />
+            <SummaryCard 
+              title="Neto a Pagar" 
+              value={totalPayroll} 
+            />
           </div>
 
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>
-                  Nómina Calculada - {months.find(m => m.value === selectedMonth)?.label} {selectedYear}
-                </CardTitle>
+                <div>
+                  <CardTitle>
+                    Nómina Calculada - {months.find(m => m.value === selectedMonth)?.label} {selectedYear}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Mostrando {displayedPayrolls.length} de {calculatedPayrolls.length} registros
+                    {selectedMunicipality !== "all" && ` (Municipio: ${selectedMunicipality})`}
+                  </p>
+                </div>
                 <Button onClick={handleDownloadAllPDFs} variant="outline">
                   <Download className="mr-2 h-4 w-4" />
-                  Descargar Todos
+                  Descargar {selectedMunicipality === "all" ? "Todos" : "Filtrados"}
                 </Button>
               </div>
             </CardHeader>
@@ -330,6 +375,7 @@ export default function PayrollPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Empleado</TableHead>
+                    <TableHead>Municipio</TableHead>
                     <TableHead>Salario Base</TableHead>
                     <TableHead>Bonos</TableHead>
                     <TableHead>H. Extras</TableHead>
@@ -339,11 +385,18 @@ export default function PayrollPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {calculatedPayrolls.map(payroll => {
+                  {displayedPayrolls.map(payroll => {
                     const employee = employees.find(e => e.id === payroll.employee_id)
                     return (
                       <TableRow key={payroll.id}>
-                        <TableCell className="font-medium">{employee?.first_name} {employee?.last_name}</TableCell>
+                        <TableCell className="font-medium">
+                          {employee?.first_name} {employee?.last_name}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs bg-muted px-2 py-1 rounded">
+                            {employee?.department}
+                          </span>
+                        </TableCell>
                         <TableCell>${payroll.base_salary.toLocaleString("es-CO")}</TableCell>
                         <TableCell className="text-green-600">${payroll.bonuses.toLocaleString("es-CO")}</TableCell>
                         <TableCell className="text-green-600">${payroll.overtime.toLocaleString("es-CO")}</TableCell>
@@ -367,14 +420,27 @@ export default function PayrollPage() {
   )
 }
 
-function SummaryCard({ title, value, color }: { title: string; value: number; color?: string }) {
+function SummaryCard({ 
+  title, 
+  value, 
+  color,
+  subtitle 
+}: { 
+  title: string
+  value: number
+  color?: string
+  subtitle?: string
+}) {
   return (
     <Card className="transition-all hover:shadow-md">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm text-muted-foreground">{title}</CardTitle>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </CardHeader>
       <CardContent>
-        <div className={`text-2xl font-bold ${color ?? ""}`}>${value.toLocaleString("es-CO")}</div>
+        <div className={`text-2xl font-bold ${color ?? ""}`}>
+          ${value.toLocaleString("es-CO")}
+        </div>
       </CardContent>
     </Card>
   )
